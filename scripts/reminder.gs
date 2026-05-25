@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- *  Event Planner — Day-Before Reminder Email
+ *  Event Planner: Day-Before Reminder Email
  *  V2 feature per docs/roadmap.md and docs/PRD.md (§4 "In scope V2").
  * ============================================================================
  *
@@ -26,18 +26,18 @@
  *        HOST_REPLY_EMAIL    <-- where guests' replies should go
  *        VENUE_MAP_FALLBACK  <-- optional Google Maps URL if a row has none
  *
- *     (The script also reads per-event venue overrides from the Sheet itself —
+ *     (The script also reads per-event venue overrides from the Sheet itself;
  *     see the "Event Date" / "Venue" columns. Script properties are just the
  *     defaults / host identity.)
  *
  *  5. Run the function `sendReminders` once manually. Google will ask you to
- *     authorize access to Sheets + Gmail — approve it (it's your own account).
+ *     authorize access to Sheets + Gmail; approve it (it's your own account).
  *  6. Click the clock icon (Triggers) → "Add Trigger":
  *        Function:        sendReminders
  *        Event source:    Time-driven
  *        Type:            Day timer
- *        Time of day:     9am – 10am (guest-friendly morning send)
- *     Save. You're done — it now runs daily.
+ *        Time of day:     9am to 10am (guest-friendly morning send)
+ *     Save. You're done; it now runs daily.
  *
  *  EXPECTED SHEET COLUMNS (header row)
  *  -----------------------------------
@@ -45,9 +45,9 @@
  *    B: Name
  *    C: Email
  *    D: Event Name
- *    E: Event Date       (parseable date — e.g. 2026-06-15 or 6/15/2026)
+ *    E: Event Date       (parseable date, e.g. 2026-06-15 or 6/15/2026)
  *    F: RSVP             ("Yes" / "No" / "Maybe")
- *    G: Potluck Item     (free text — may be empty)
+ *    G: Potluck Item     (free text, may be empty)
  *    H: Dietary Restrictions
  *  Optional extra columns the script will use if present:
  *    I: Event Time       (e.g. "7:00 PM")
@@ -88,7 +88,7 @@ function sendReminders() {
   const props = PropertiesService.getScriptProperties();
   const todayKey = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
-  // Idempotency guard — bail if we already ran today.
+  // Idempotency guard: bail if we already ran today.
   const lastSent = props.getProperty('LAST_SENT_DATE');
   if (lastSent === todayKey) {
     Logger.log('Reminders already sent today (' + todayKey + '). Skipping.');
@@ -143,7 +143,7 @@ function sendReminders() {
           ? eventDateRaw
           : new Date(eventDateRaw);
         if (isNaN(eventDate.getTime())) {
-          Logger.log('Row ' + (i + 1) + ': unparseable Event Date "' + eventDateRaw + '" — skipping.');
+          Logger.log('Row ' + (i + 1) + ': unparseable Event Date "' + eventDateRaw + '". Skipping.');
           skipped++;
           continue;
         }
@@ -152,7 +152,7 @@ function sendReminders() {
 
         const email = (row[COL_EMAIL] || '').toString().trim();
         if (!email || email.indexOf('@') === -1) {
-          Logger.log('Row ' + (i + 1) + ': invalid email "' + email + '" — skipping.');
+          Logger.log('Row ' + (i + 1) + ': invalid email "' + email + '". Skipping.');
           skipped++;
           continue;
         }
@@ -194,20 +194,20 @@ function sendReminders() {
     }
 
     // Only mark the day "done" if at least one attempt was made without
-    // a top-level crash. Per-row failures don't block the marker — they're
+    // a top-level crash. Per-row failures don't block the marker; they're
     // logged and the run is still considered complete.
     props.setProperty('LAST_SENT_DATE', todayKey);
     Logger.log('Run complete. Sent: ' + sent + ', Skipped: ' + skipped + ', Errors: ' + errors);
 
   } catch (err) {
     Logger.log('FATAL: ' + err);
-    // Do NOT update LAST_SENT_DATE — we want tomorrow's trigger to retry.
+    // Do NOT update LAST_SENT_DATE; we want tomorrow's trigger to retry.
     throw err;
   }
 }
 
 /**
- * Build the plain-text reminder body. Kept as plain text intentionally —
+ * Build the plain-text reminder body. Kept as plain text intentionally;
  * higher inbox-deliverability than HTML for low-volume personal sends.
  */
 function buildEmailBody(ctx) {
@@ -228,9 +228,9 @@ function buildEmailBody(ctx) {
     lines.push('  You\'re bringing: ' + ctx.potluck);
   }
   lines.push('');
-  lines.push('No need to reply — just see you there. If anything changes on your end, hit reply and let me know.');
+  lines.push('No need to reply, just see you there. If anything changes on your end, hit reply and let me know.');
   lines.push('');
-  lines.push('— ' + ctx.hostName);
+  lines.push('- ' + ctx.hostName);
   return lines.join('\n');
 }
 

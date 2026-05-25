@@ -1,4 +1,4 @@
-# Feature Prioritization — MoSCoW
+# Feature Prioritization: MoSCoW
 
 Standard PM artifact showing scope discipline. Each feature is tagged Must / Should / Could / Won't and given a one-line rationale.
 
@@ -16,7 +16,7 @@ Standard PM artifact showing scope discipline. Each feature is tagged Must / Sho
 | Activity poll via Form | **Should** | Solves "what should we do?" pre-event |
 | Venue checklist | **Should** | Useful, but power-user-skewed |
 | Dietary restriction auto roll-up | **Should** | Falls out of the schema almost for free |
-| Auto-sync Form → Notion (Zapier) | **Should** | Removes the only manual step in MVP |
+| Auto-sync Form to Notion (Zapier) | **Should** | Removes the only manual step in MVP |
 | Past-events library with photos | **Could** | Adds longitudinal value; schema supports it already |
 | Persistent guest profile memory | **Could** | Free once schema exists; surface in V3 |
 | Weather forecast for outdoor events | **Could** | Nice to have; low marginal user benefit |
@@ -33,6 +33,6 @@ Standard PM artifact showing scope discipline. Each feature is tagged Must / Sho
 ## Why MoSCoW (and not RICE)
 
 - **MoSCoW** is right when scope is being negotiated against fixed time (portfolio-stage project, no real users yet to score Reach)
-- **RICE** becomes more useful in V2+ when we have pilot data (actual Reach numbers from event pilots, Confidence from real-world feedback)
+- **RICE** becomes more useful in V2+ once we have pilot data (actual Reach numbers from event pilots, Confidence from real-world feedback)
 
 A RICE matrix will be added after the first pilot when there's data to populate the columns honestly.

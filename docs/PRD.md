@@ -1,7 +1,7 @@
 # PRD: Event Planner
 
 **Owner:** danielxhe
-**Status:** v1.0 — MVP scope locked 2026-05-25
+**Status:** v1.0, MVP scope locked 2026-05-25
 **Last updated:** 2026-05-25
 
 ---
@@ -10,15 +10,15 @@
 
 People who host small gatherings (5–50 guests) coordinate across 3–5 disconnected tools: a group chat for invites, a spreadsheet for potluck, a notes app for the schedule, texts for dietary restrictions. Information gets lost, duplicated, or forgotten. The host bears all the cognitive load.
 
-Existing tools either over-solve (Eventbrite, Partiful — built for ticketed/public events) or under-solve (group chats, plain spreadsheets — no structure). There's no lightweight, structured planning hub for the private host throwing a dinner, birthday, BBQ, or game night.
+Existing tools either over-solve (Eventbrite, Partiful are built for ticketed/public events) or under-solve (group chats and plain spreadsheets have no structure). There's no lightweight, structured planning hub for the private host throwing a dinner, birthday, BBQ, or game night.
 
 ## 2. Target users
 
-**Primary:** The recurring private host — throws 3+ gatherings per year, cares about guests' experience, currently coordinates via group chat + memory.
+**Primary:** The recurring private host. Throws 3+ gatherings per year, cares about guests' experience, currently coordinates via group chat plus memory.
 
 **Secondary:** Co-organizers helping the primary host (partner, roommate, friend).
 
-**Tertiary:** Guests — need a single source of truth for *when, where, what to bring, what to wear*.
+**Tertiary:** Guests, who need a single source of truth for *when, where, what to bring, what to wear*.
 
 ## 3. Jobs to be done
 
@@ -41,8 +41,8 @@ Existing tools either over-solve (Eventbrite, Partiful — built for ticketed/pu
 - Co-organizer edit permissions
 - Read-only guest-facing summary page
 
-### In scope (V2 — should-have)
-- **Budget tracker — optional per event** (off by default; toggle on per event)
+### In scope (V2, should-have)
+- **Budget tracker, optional per event** (off by default; toggle on per event)
 - Activity poll / voting (via Google Form)
 - Venue checklist (parking, accessibility, weather backup)
 - **Auto-reminder email day before event** (1 day, not 3)
@@ -55,10 +55,10 @@ Existing tools either over-solve (Eventbrite, Partiful — built for ticketed/pu
 - QR code for arrival check-in
 
 ### Explicitly out of scope
-- **Payment splitting** — Venmo, Splitwise, and Zelle already own this
-- **Native mobile app** — Notion mobile app is sufficient; no compelling reason to fragment
-- **Ticketing / paid events** — Eventbrite/Partiful own this; private gatherings rarely sell tickets
-- **Calendar integration beyond `.ics` export** — power users can self-import
+- **Payment splitting** (Venmo, Splitwise, and Zelle already own this)
+- **Native mobile app** (Notion mobile app is sufficient; no compelling reason to fragment)
+- **Ticketing / paid events** (Eventbrite/Partiful own this; private gatherings rarely sell tickets)
+- **Calendar integration beyond `.ics` export** (power users can self-import)
 
 ## 5. Solution overview
 
@@ -74,7 +74,7 @@ A **Notion-based workspace** (templated) where the host plans the event and a **
 
 | Metric | Definition | Target (after 3 real events) |
 |---|---|---|
-| **Planning time** | Hours host spends on logistics from invite-send to event-day | < 2 hours per event (baseline: ~5 hrs via chat/sheets) |
+| **Planning time** | Hours host spends on logistics from invite-send to event-day | < 2 hours per event (baseline ~5 hrs via chat/sheets) |
 | **RSVP response rate** | % of invited guests who respond Yes/No/Maybe | > 85% by event date |
 | **Potluck coverage** | % of host-defined slots claimed before event | > 90% |
 | **Dietary surprises** | Allergens/restrictions discovered at the event itself | 0 |
@@ -85,7 +85,7 @@ A **Notion-based workspace** (templated) where the host plans the event and a **
 
 - **Risk:** Notion learning curve for non-technical hosts. **Mitigation:** ship a "Duplicate this template" link + 2-minute Loom walkthrough.
 - **Risk:** Manual Form→Notion copy is friction. **Mitigation:** acceptable for MVP; automate in V2 via Zapier free tier (100 tasks/mo covers most users).
-- **Risk:** Guests ignore the Form and just text the host. **Mitigation:** invite copy emphasizes "RSVP via this link only — texts won't be tracked"; reminder includes Form link.
+- **Risk:** Guests ignore the Form and just text the host. **Mitigation:** invite copy emphasizes "RSVP via this link only; texts won't be tracked"; reminder includes Form link.
 - **Assumption:** Hosts have Gmail (for Form + reminder Apps Script). Likely true for ~90% of US users.
 
 ## 8. Open questions

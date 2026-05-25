@@ -8,16 +8,16 @@ This repo is the **PM artifact home** for the project. The actual app lives in N
 
 ## Why this exists
 
-People throwing dinners, birthdays, BBQs, and game nights for 5–50 guests coordinate across 3–5 disconnected tools (group chat, spreadsheet, notes app, texts). Information gets lost, duplicated, or forgotten. Existing event tools over-solve (Eventbrite, Partiful — built for ticketed/public events) or under-solve (group chats, plain spreadsheets — no structure).
+People throwing dinners, birthdays, BBQs, and game nights for 5–50 guests coordinate across 3–5 disconnected tools (group chat, spreadsheet, notes app, texts). Information gets lost, duplicated, or forgotten. Existing event tools over-solve (Eventbrite, Partiful, built for ticketed/public events) or under-solve (group chats, plain spreadsheets, no structure).
 
-This project is a lightweight, structured planning hub for the **private host** — and a portfolio piece demonstrating product thinking, scope discipline, and end-to-end execution from problem statement to working pilot.
+This project is a lightweight, structured planning hub for the **private host**, and a portfolio piece demonstrating product thinking, scope discipline, and end-to-end execution from problem statement to working pilot.
 
 ---
 
 ## Live app
 
-🔗 *Notion workspace link — to be added once template is published*
-🔗 *GitHub Pages landing site — `https://danielxhe.github.io/event-planner` (to be deployed)*
+🔗 *Notion workspace link (to be added once template is published)*
+🔗 *GitHub Pages landing site: `https://danielxhe.github.io/event-planner` (to be deployed)*
 
 ---
 
@@ -50,7 +50,7 @@ This project is a lightweight, structured planning hub for the **private host** 
 
 **Operational scripts**
 
-- [`scripts/reminder.gs`](scripts/reminder.gs) — Google Apps Script for day-before email reminders
+- [`scripts/reminder.gs`](scripts/reminder.gs): Google Apps Script for day-before email reminders
 
 *Coming soon: post-pilot retro write-up.*
 
@@ -59,10 +59,10 @@ This project is a lightweight, structured planning hub for the **private host** 
 ## Project status
 
 🟢 **Concept & scope locked** (2026-05-25)
-⏳ **MVP build in progress** — Notion workspace + Form + landing page
-⏳ **First real-world pilot** — pending MVP completion
-⏳ **Post-pilot retro** — pending pilot
-⏳ **V2 features** — opt-in budget tracker, day-before reminder, Form auto-sync
+⏳ **MVP build in progress**: Notion workspace + Form + landing page
+⏳ **First real-world pilot** (pending MVP completion)
+⏳ **Post-pilot retro** (pending pilot)
+⏳ **V2 features**: opt-in budget tracker, day-before reminder, Form auto-sync
 
 See [roadmap](docs/roadmap.md) for full milestone list.
 
@@ -75,9 +75,9 @@ This project is structured to demonstrate:
 - **Problem framing** → see PRD §1–2
 - **Scope discipline** → see PRD §4 (explicit out-of-scope) and prioritization MoSCoW
 - **System design thinking** → see Notion schema (5 linked databases with relations, rollups, formulas)
-- **Measurement** → see metrics doc (north-star + guardrails, not vanity metrics)
+- **Measurement** → see metrics doc (north-star + guardrails)
 - **Iteration plan** → see roadmap (Now/Next/Later, plus retro-driven V2)
-- **End-to-end ownership** → planned: real pilots with retros, not just paper PM work
+- **End-to-end ownership** → planned: real pilots with written retros
 
 ---
 
