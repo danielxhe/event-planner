@@ -1,0 +1,47 @@
+{
+  "events": [
+    {
+      "slug": "test-dinner-party",
+      "name": "Test Dinner Party",
+      "status": "upcoming",
+      "date": "2026-06-01",
+      "startTime": "7:00 PM",
+      "endTime": "10:00 PM",
+      "venue": {
+        "name": "Daniel's apartment",
+        "address": "(address shared upon RSVP)",
+        "mapUrl": ""
+      },
+      "dressCode": "Casual",
+      "description": "Casual Italian-themed dinner with friends. Bring your appetite and one dish to share.",
+      "coverImage": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80",
+      "rsvpFormUrl": "#",
+      "rsvpDeadline": "2026-05-29",
+      "host": {
+        "name": "Daniel",
+        "contact": "daniel@example.com"
+      },
+      "schedule": [
+        {"time": "7:00 PM", "activity": "Arrival & drinks"},
+        {"time": "7:30 PM", "activity": "Dinner served"},
+        {"time": "9:00 PM", "activity": "Dessert & coffee"},
+        {"time": "10:00 PM", "activity": "Wind down"}
+      ],
+      "potluck": [
+        {"category": "Main", "item": "Lasagna", "claimedBy": "Alex", "serves": 8},
+        {"category": "Main", "item": "", "claimedBy": "", "serves": 8},
+        {"category": "Side", "item": "Caesar salad", "claimedBy": "Sam", "serves": 6},
+        {"category": "Side", "item": "", "claimedBy": "", "serves": 6},
+        {"category": "Dessert", "item": "", "claimedBy": "", "serves": 8},
+        {"category": "Drinks", "item": "Wine + sparkling water", "claimedBy": "Daniel", "serves": 12}
+      ],
+      "guests": [
+        {"name": "Alex", "status": "confirmed"},
+        {"name": "Sam", "status": "confirmed", "dietary": "Vegetarian"},
+        {"name": "Jordan", "status": "maybe"},
+        {"name": "Priya", "status": "confirmed"},
+        {"name": "Marcus", "status": "no-response"}
+      ]
+    }
+  ]
+}

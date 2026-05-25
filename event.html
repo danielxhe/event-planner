@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event - Event Planner</title>
+<meta name="description" content="A guest-facing event page built on the Event Planner workspace.">
+<style>
+  :root {
+    --bg: #FAF8F5;
+    --surface: #FFFFFF;
+    --text: #1F1D1B;
+    --muted: #5C5852;
+    --rule: #E8E2D9;
+    --accent: #C65D3A;
+    --accent-dark: #A84A2C;
+    --soft-bg: #F3EEE6;
+    --radius: 10px;
+    --maxw: 860px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-dark); text-decoration: underline; }
+
+  h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5em; font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: 3rem; letter-spacing: -0.025em; }
+  h2 { font-size: 1.6rem; margin-bottom: 1rem; }
+  h3 { font-size: 1.1rem; }
+  p { margin: 0 0 1em; }
+
+  .container { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* Top nav */
+  .topnav {
+    border-bottom: 1px solid var(--rule);
+    background: rgba(250, 248, 245, 0.85);
+    backdrop-filter: saturate(140%) blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .topnav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    max-width: var(--maxw);
+    margin: 0 auto;
+  }
+  .brand { font-weight: 600; color: var(--text); }
+  .brand:hover { text-decoration: none; color: var(--text); }
+  .brand .dot { color: var(--accent); }
+  .topnav-links a { color: var(--muted); margin-left: 18px; font-size: 0.95rem; }
+  .topnav-links a:hover { color: var(--text); text-decoration: none; }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    width: 100%;
+    height: 56vh;
+    min-height: 380px;
+    max-height: 560px;
+    background-size: cover;
+    background-position: center;
+    background-color: #2A2522;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.78) 100%);
+  }
+  .hero-inner {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 48px 24px 40px;
+    z-index: 2;
+    color: #fff;
+  }
+  .hero-inner .container { padding: 0 24px; }
+  .hero .eyebrow {
+    display: inline-block;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--accent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    color: #fff;
+    margin: 0 0 12px;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.35);
+  }
+  .hero .hero-meta {
+    font-size: 1.15rem;
+    color: #F5EFE8;
+    margin: 0;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+  }
+
+  /* Sticky info bar */
+  .infobar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--rule);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .infobar-inner {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 18px 24px;
+    gap: 16px;
+  }
+  .info-cell {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+  }
+  .info-cell .ico {
+    font-size: 1.2rem;
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+  .info-cell .info-text { min-width: 0; }
+  .info-cell .info-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .info-cell .info-value {
+    font-size: 0.97rem;
+    color: var(--text);
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  /* Sections */
+  section { padding: 56px 0; border-top: 1px solid var(--rule); }
+  section:first-of-type { border-top: none; }
+  section .section-label {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  /* RSVP CTA */
+  .rsvp {
+    text-align: center;
+    background: var(--soft-bg);
+    border-top: none;
+  }
+  .rsvp .deadline {
+    font-size: 0.92rem;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .btn {
+    display: inline-block;
+    padding: 14px 32px;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 1.02rem;
+    border: 1px solid transparent;
+    transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); color: #fff; }
+  .rsvp .placeholder-note {
+    display: inline-block;
+    background: var(--surface);
+    border: 1px dashed var(--rule);
+    color: var(--muted);
+    padding: 14px 24px;
+    border-radius: var(--radius);
+    font-size: 0.97rem;
+  }
+
+  /* About */
+  .about p {
+    font-size: 1.12rem;
+    color: var(--text);
+    max-width: 680px;
+    line-height: 1.65;
+  }
+
+  /* Schedule timeline */
+  .timeline {
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+    position: relative;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 92px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--rule);
+  }
+  .timeline li {
+    display: grid;
+    grid-template-columns: 92px 24px 1fr;
+    align-items: flex-start;
+    padding: 14px 0;
+    position: relative;
+  }
+  .timeline .t-time {
+    font-size: 0.92rem;
+    color: var(--muted);
+    font-weight: 600;
+    padding-top: 1px;
+    text-align: right;
+    padding-right: 18px;
+  }
+  .timeline .t-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin: 7px 0 0 6px;
+    border: 3px solid var(--bg);
+    box-shadow: 0 0 0 2px var(--accent);
+    z-index: 1;
+  }
+  .timeline .t-act {
+    font-size: 1.05rem;
+    color: var(--text);
+    padding-left: 4px;
+  }
+
+  /* Potluck */
+  .coverage-badge {
+    display: inline-block;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+  .coverage-badge .num { color: var(--accent); }
+  .potluck-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .potluck-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 22px 22px 14px;
+  }
+  .potluck-card .cat-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .potluck-card .cat-name {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .potluck-card .cat-count {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .slot {
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--rule);
+    font-size: 0.97rem;
+  }
+  .slot:last-child { border-bottom: none; }
+  .slot.filled .item { font-weight: 600; color: var(--text); }
+  .slot.filled .by { color: var(--muted); font-size: 0.88rem; margin-top: 2px; display: block; }
+  .slot.filled .check {
+    color: #3D8C3D;
+    margin-right: 6px;
+    font-weight: 700;
+  }
+  .slot.open {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.93rem;
+  }
+  .slot.open .open-dot { color: var(--accent); margin-right: 6px; font-style: normal; }
+
+  /* Guests */
+  .guest-counts {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .guest-counts .stat {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    min-width: 120px;
+  }
+  .guest-counts .stat .n {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .guest-counts .stat.confirmed .n { color: var(--accent); }
+  .guest-counts .stat .label {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chip {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 0.92rem;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .chip .name { color: var(--text); font-weight: 500; }
+  .chip .diet { color: var(--muted); font-size: 0.78rem; margin-top: 1px; }
+  .chip.maybe { border-style: dashed; color: var(--muted); }
+  .chip.maybe .name { color: var(--muted); }
+
+  /* Host */
+  .host-block {
+    background: var(--soft-bg);
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    margin-top: 8px;
+    color: var(--text);
+  }
+  .host-block .host-name { font-weight: 600; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 28px 0 40px;
+    color: var(--muted);
+    font-size: 0.88rem;
+    text-align: center;
+  }
+
+  /* States */
+  .state {
+    padding: 96px 24px;
+    text-align: center;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .state h1 { font-size: 2rem; margin-bottom: 12px; }
+  .state p { color: var(--muted); }
+  .state .event-list {
+    list-style: none;
+    padding: 0;
+    margin: 28px 0 0;
+    text-align: left;
+  }
+  .state .event-list li {
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    background: var(--surface);
+  }
+  .state .event-list li a { font-weight: 600; }
+  .state .event-list li .when {
+    display: block;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 4px;
+  }
+
+  /* Responsive */
+  @media (max-width: 720px) {
+    h1 { font-size: 2.1rem; }
+    h2 { font-size: 1.35rem; }
+    .hero { height: auto; min-height: 320px; max-height: none; }
+    .hero-inner { padding: 80px 24px 28px; }
+    .infobar-inner {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 16px 24px;
+    }
+    .topnav-links { display: none; }
+    section { padding: 44px 0; }
+    .potluck-grid { grid-template-columns: 1fr; }
+    .timeline::before { left: 76px; }
+    .timeline li { grid-template-columns: 76px 20px 1fr; }
+    .timeline .t-time { font-size: 0.85rem; padding-right: 12px; }
+  }
+
+  /* Print */
+  @media print {
+    .topnav, .rsvp .btn, footer { display: none; }
+    body { background: #fff; color: #000; font-size: 12pt; }
+    .hero {
+      height: auto;
+      min-height: 0;
+      background-image: none !important;
+      background-color: #fff;
+      border-bottom: 2px solid #000;
+    }
+    .hero::after { display: none; }
+    .hero-inner { position: static; padding: 0 0 16px; color: #000; }
+    .hero h1, .hero .hero-meta { color: #000; text-shadow: none; }
+    .hero .eyebrow { background: #fff; color: #000; border: 1px solid #000; }
+    .infobar { box-shadow: none; }
+    section { padding: 16px 0; page-break-inside: avoid; }
+    .potluck-card, .host-block, .chip, .guest-counts .stat { background: #fff; border-color: #888; }
+    a { color: #000; text-decoration: underline; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <a href="index.html" class="brand">Event Planner<span class="dot">.</span></a>
+    <div class="topnav-links">
+      <a href="index.html">Home</a>
+      <a href="https://github.com/danielxhe/event-planner">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<main id="root">
+  <!-- Rendered by JS -->
+  <div class="state">
+    <p style="color: var(--muted);">Loading event...</p>
+  </div>
+</main>
+
+<script>
+(function() {
+  const REPO_URL = "https://github.com/danielxhe/event-planner";
+  const root = document.getElementById("root");
+
+  function getParam(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+  }
+
+  function esc(s) {
+    if (s === undefined || s === null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function formatDate(iso) {
+    // iso = "YYYY-MM-DD"
+    if (!iso) return "";
+    const parts = iso.split("-");
+    if (parts.length !== 3) return iso;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (isNaN(d.getTime())) return iso;
+    const opts = { weekday: "long", month: "long", day: "numeric", year: "numeric" };
+    return d.toLocaleDateString("en-US", opts);
+  }
+
+  function formatDateShort(iso) {
+    if (!iso) return "";
+    const parts = iso.split("-");
+    if (parts.length !== 3) return iso;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+  }
+
+  function renderError(html) {
+    document.title = "Event not found - Event Planner";
+    root.innerHTML = html;
+  }
+
+  function renderPicker(events) {
+    document.title = "Pick an event - Event Planner";
+    const items = events.map(function(e) {
+      return '<li>' +
+        '<a href="event.html?event=' + encodeURIComponent(e.slug) + '">' + esc(e.name) + '</a>' +
+        '<span class="when">' + esc(formatDate(e.date)) + (e.startTime ? ' &middot; ' + esc(e.startTime) : '') + '</span>' +
+      '</li>';
+    }).join("");
+    root.innerHTML =
+      '<div class="state">' +
+        '<h1>Pick an event</h1>' +
+        '<p>This page renders a specific event. Choose one below to view it.</p>' +
+        '<ul class="event-list">' + items + '</ul>' +
+      '</div>';
+  }
+
+  function renderEvent(event) {
+    document.title = event.name + " - Event Planner";
+
+    const cover = event.coverImage ? 'style="background-image: url(\'' + esc(event.coverImage) + '\');"' : '';
+    const eyebrow = event.status ? esc(event.status.toUpperCase()) : "EVENT";
+    const dateLong = formatDate(event.date);
+    const dateShort = formatDateShort(event.date);
+    const timeRange = event.startTime + (event.endTime ? " - " + event.endTime : "");
+
+    // RSVP block
+    let rsvpBlock = "";
+    const hasRsvp = event.rsvpFormUrl && event.rsvpFormUrl !== "#";
+    if (hasRsvp) {
+      rsvpBlock =
+        '<p class="deadline">Please RSVP by ' + esc(formatDateShort(event.rsvpDeadline)) + '.</p>' +
+        '<a class="btn btn-primary" href="' + esc(event.rsvpFormUrl) + '">RSVP via Form</a>';
+    } else {
+      rsvpBlock =
+        '<p class="deadline">Please RSVP by ' + esc(formatDateShort(event.rsvpDeadline)) + '.</p>' +
+        '<div class="placeholder-note">RSVP link coming soon</div>';
+    }
+
+    // Schedule
+    let scheduleHtml = "";
+    if (event.schedule && event.schedule.length) {
+      const items = event.schedule.map(function(s) {
+        return '<li>' +
+          '<span class="t-time">' + esc(s.time) + '</span>' +
+          '<span class="t-dot"></span>' +
+          '<span class="t-act">' + esc(s.activity) + '</span>' +
+        '</li>';
+      }).join("");
+      scheduleHtml =
+        '<section>' +
+          '<div class="container">' +
+            '<div class="section-label">Run of show</div>' +
+            '<h2>Schedule</h2>' +
+            '<ul class="timeline">' + items + '</ul>' +
+          '</div>' +
+        '</section>';
+    }
+
+    // Potluck
+    let potluckHtml = "";
+    if (event.potluck && event.potluck.length) {
+      const total = event.potluck.length;
+      const claimed = event.potluck.filter(function(p) { return p.item && p.claimedBy; }).length;
+
+      // Group by category, preserving first-seen order
+      const order = [];
+      const grouped = {};
+      event.potluck.forEach(function(p) {
+        if (!grouped[p.category]) {
+          grouped[p.category] = [];
+          order.push(p.category);
+        }
+        grouped[p.category].push(p);
+      });
+
+      const cards = order.map(function(cat) {
+        const slots = grouped[cat];
+        const catClaimed = slots.filter(function(p) { return p.item && p.claimedBy; }).length;
+        const slotHtml = slots.map(function(p) {
+          if (p.item && p.claimedBy) {
+            return '<div class="slot filled">' +
+              '<span class="check">&#10003;</span><span class="item">' + esc(p.item) + '</span>' +
+              '<span class="by">brought by ' + esc(p.claimedBy) + (p.serves ? ' &middot; serves ' + esc(p.serves) : '') + '</span>' +
+            '</div>';
+          }
+          return '<div class="slot open">' +
+            '<span class="open-dot">+</span>Open slot ' +
+            (p.serves ? '(serves ' + esc(p.serves) + ') ' : '') +
+            '&mdash; claim via RSVP' +
+          '</div>';
+        }).join("");
+
+        return '<div class="potluck-card">' +
+          '<div class="cat-head">' +
+            '<span class="cat-name">' + esc(cat) + '</span>' +
+            '<span class="cat-count">' + catClaimed + ' / ' + slots.length + '</span>' +
+          '</div>' +
+          slotHtml +
+        '</div>';
+      }).join("");
+
+      potluckHtml =
+        '<section>' +
+          '<div class="container">' +
+            '<div class="section-label">Bring a dish</div>' +
+            '<h2>Potluck</h2>' +
+            '<span class="coverage-badge"><span class="num">' + claimed + '</span> of ' + total + ' slots claimed</span>' +
+            '<div class="potluck-grid">' + cards + '</div>' +
+          '</div>' +
+        '</section>';
+    }
+
+    // Guests
+    let guestsHtml = "";
+    if (event.guests && event.guests.length) {
+      const confirmed = event.guests.filter(function(g) { return g.status === "confirmed"; });
+      const maybe = event.guests.filter(function(g) { return g.status === "maybe"; });
+
+      const chipsHtml = confirmed.concat(maybe).map(function(g) {
+        const cls = g.status === "maybe" ? "chip maybe" : "chip";
+        const diet = g.dietary ? '<span class="diet">' + esc(g.dietary) + '</span>' : '';
+        return '<span class="' + cls + '">' +
+          '<span class="name">' + esc(g.name) + (g.status === "maybe" ? ' (maybe)' : '') + '</span>' +
+          diet +
+        '</span>';
+      }).join("");
+
+      guestsHtml =
+        '<section>' +
+          '<div class="container">' +
+            '<div class="section-label">The guest list</div>' +
+            '<h2>Who&rsquo;s coming</h2>' +
+            '<div class="guest-counts">' +
+              '<div class="stat confirmed"><span class="n">' + confirmed.length + '</span><span class="label">Confirmed</span></div>' +
+              '<div class="stat"><span class="n">' + maybe.length + '</span><span class="label">Maybe</span></div>' +
+            '</div>' +
+            '<div class="chips">' + chipsHtml + '</div>' +
+          '</div>' +
+        '</section>';
+    }
+
+    // Host
+    let hostHtml = "";
+    if (event.host && event.host.name) {
+      const contact = event.host.contact
+        ? ' &middot; Questions? <a href="mailto:' + esc(event.host.contact) + '">' + esc(event.host.contact) + '</a>'
+        : '';
+      hostHtml =
+        '<section>' +
+          '<div class="container">' +
+            '<div class="host-block">' +
+              'Hosted by <span class="host-name">' + esc(event.host.name) + '</span>' + contact +
+            '</div>' +
+          '</div>' +
+        '</section>';
+    }
+
+    root.innerHTML =
+      '<header class="hero" ' + cover + '>' +
+        '<div class="hero-inner">' +
+          '<div class="container">' +
+            '<span class="eyebrow">' + eyebrow + '</span>' +
+            '<h1>' + esc(event.name) + '</h1>' +
+            '<p class="hero-meta">' + esc(dateLong) + (event.startTime ? ' &middot; ' + esc(event.startTime) : '') + '</p>' +
+          '</div>' +
+        '</div>' +
+      '</header>' +
+
+      '<div class="infobar">' +
+        '<div class="infobar-inner">' +
+          '<div class="info-cell"><span class="ico">&#128197;</span><span class="info-text">' +
+            '<span class="info-label">Date</span><span class="info-value">' + esc(dateShort) + '</span>' +
+          '</span></div>' +
+          '<div class="info-cell"><span class="ico">&#128340;</span><span class="info-text">' +
+            '<span class="info-label">Time</span><span class="info-value">' + esc(timeRange) + '</span>' +
+          '</span></div>' +
+          '<div class="info-cell"><span class="ico">&#128205;</span><span class="info-text">' +
+            '<span class="info-label">Venue</span><span class="info-value">' + esc(event.venue ? event.venue.name : "") + '</span>' +
+          '</span></div>' +
+          '<div class="info-cell"><span class="ico">&#128084;</span><span class="info-text">' +
+            '<span class="info-label">Dress code</span><span class="info-value">' + esc(event.dressCode || "Anything goes") + '</span>' +
+          '</span></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<section class="rsvp">' +
+        '<div class="container">' +
+          rsvpBlock +
+        '</div>' +
+      '</section>' +
+
+      '<section class="about">' +
+        '<div class="container">' +
+          '<div class="section-label">About this event</div>' +
+          '<h2>What to expect</h2>' +
+          '<p>' + esc(event.description) + '</p>' +
+          (event.venue && event.venue.address ?
+            '<p style="color: var(--muted); font-size: 0.97rem;"><strong style="color: var(--text);">Where:</strong> ' + esc(event.venue.address) +
+            (event.venue.mapUrl ? ' &middot; <a href="' + esc(event.venue.mapUrl) + '">Open in Maps</a>' : '') +
+            '</p>' : '') +
+        '</div>' +
+      '</section>' +
+
+      scheduleHtml +
+      potluckHtml +
+      guestsHtml +
+      hostHtml +
+
+      '<footer>' +
+        '<div class="container">' +
+          'Powered by <a href="index.html">Event Planner</a> &middot; <a href="' + REPO_URL + '">View on GitHub</a>' +
+        '</div>' +
+      '</footer>';
+  }
+
+  fetch("data/events.json", { cache: "no-store" })
+    .then(function(r) {
+      if (!r.ok) throw new Error("Failed to load events.json (" + r.status + ")");
+      return r.json();
+    })
+    .then(function(data) {
+      const events = (data && data.events) || [];
+      const slug = getParam("event");
+
+      if (!slug) {
+        renderPicker(events);
+        return;
+      }
+
+      const found = events.find(function(e) { return e.slug === slug; });
+      if (!found) {
+        renderError(
+          '<div class="state">' +
+            '<h1>Event not found</h1>' +
+            '<p>We couldn&rsquo;t find an event with the ID <code>' + esc(slug) + '</code>.</p>' +
+            '<p style="margin-top: 20px;"><a href="index.html">&larr; Back to the landing page</a></p>' +
+          '</div>'
+        );
+        return;
+      }
+
+      renderEvent(found);
+    })
+    .catch(function(err) {
+      renderError(
+        '<div class="state">' +
+          '<h1>Something went wrong</h1>' +
+          '<p>We couldn&rsquo;t load the event data. ' + esc(err.message) + '</p>' +
+          '<p style="margin-top: 12px; color: var(--muted); font-size: 0.9rem;">If you&rsquo;re opening this file locally, browsers block <code>fetch()</code> on the file:// protocol. Serve the folder with <code>python -m http.server</code> or push to GitHub Pages.</p>' +
+        '</div>'
+      );
+    });
+})();
+</script>
+
+</body>
+</html>

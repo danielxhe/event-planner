@@ -17,7 +17,8 @@ This project is a lightweight, structured planning hub for the **private host**,
 ## Live app
 
 🔗 *Notion workspace link (to be added once template is published)*
-🔗 *GitHub Pages landing site: `https://danielxhe.github.io/event-planner` (to be deployed)*
+🔗 GitHub Pages landing site: [https://danielxhe.github.io/event-planner](https://danielxhe.github.io/event-planner)
+🔗 Live demo event page: [https://danielxhe.github.io/event-planner/event.html?event=test-dinner-party](https://danielxhe.github.io/event-planner/event.html?event=test-dinner-party)
 
 ---
 
@@ -53,6 +54,26 @@ This project is a lightweight, structured planning hub for the **private host**,
 - [`scripts/reminder.gs`](scripts/reminder.gs): Google Apps Script for day-before email reminders
 
 *Coming soon: post-pilot retro write-up.*
+
+---
+
+## Public event pages
+
+Notion's public-share pages are too plain for the guest-facing view, so the repo ships a polished static page that reads from a single JSON file.
+
+- **URL pattern:** `event.html?event=<slug>`
+- **Live demo:** [https://danielxhe.github.io/event-planner/event.html?event=test-dinner-party](https://danielxhe.github.io/event-planner/event.html?event=test-dinner-party)
+- **Data source:** [`data/events.json`](data/events.json) — one object per event in the `events` array
+
+### Add a new event
+
+1. Open [`data/events.json`](data/events.json)
+2. Copy the existing event object and edit the fields (pick a unique `slug`)
+3. Commit and push to `main`
+4. GitHub Pages auto-redeploys in roughly a minute
+5. Share the URL: `https://danielxhe.github.io/event-planner/event.html?event=<your-slug>`
+
+No build step, no framework. The page is pure HTML, CSS, and vanilla JS, so the host can edit one file and ship.
 
 ---
 
