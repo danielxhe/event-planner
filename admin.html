@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin form - Event Planner</title>
+<meta name="description" content="Form-based editor for events.json. Fills the JSON for you so you can paste it back into the repo.">
+<style>
+  :root {
+    --bg: #FAF8F5;
+    --surface: #FFFFFF;
+    --text: #1F1D1B;
+    --muted: #5C5852;
+    --rule: #E8E2D9;
+    --accent: #C65D3A;
+    --accent-dark: #A84A2C;
+    --soft-bg: #F3EEE6;
+    --warn-bg: #FBE7D8;
+    --warn-border: #E8B996;
+    --warn-text: #7A3B17;
+    --error: #B33A2A;
+    --ok-bg: #E4EBDD;
+    --ok-text: #3D5A24;
+    --radius: 10px;
+    --maxw: 860px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-dark); text-decoration: underline; }
+
+  h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5em; font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: 2.25rem; letter-spacing: -0.02em; }
+  h2 { font-size: 1.4rem; margin: 0 0 0.75rem; }
+  h3 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+  p { margin: 0 0 1em; }
+
+  .container { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* Top nav */
+  .topnav {
+    border-bottom: 1px solid var(--rule);
+    background: rgba(250, 248, 245, 0.85);
+    backdrop-filter: saturate(140%) blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .topnav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    max-width: var(--maxw);
+    margin: 0 auto;
+  }
+  .brand { font-weight: 600; color: var(--text); }
+  .brand:hover { text-decoration: none; color: var(--text); }
+  .brand .dot { color: var(--accent); }
+  .topnav-links a { color: var(--muted); margin-left: 18px; font-size: 0.95rem; }
+  .topnav-links a:hover { color: var(--text); text-decoration: none; }
+
+  /* Header */
+  header.page {
+    padding: 56px 0 24px;
+  }
+  header.page .eyebrow {
+    display: inline-block;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  header.page p.lead {
+    color: var(--muted);
+    max-width: 640px;
+    margin: 0 0 24px;
+  }
+
+  /* Warning callout */
+  .warn {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    color: var(--warn-text);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+  }
+  .warn strong { color: var(--warn-text); }
+
+  /* Instructions */
+  .instructions {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 32px;
+  }
+  .instructions ol { margin: 0; padding-left: 22px; }
+  .instructions li { margin-bottom: 6px; }
+  .instructions code {
+    background: var(--soft-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+
+  /* Fetch-fallback panel */
+  .fallback {
+    background: var(--soft-bg);
+    border: 1px dashed var(--rule);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 32px;
+  }
+  .fallback textarea {
+    width: 100%;
+    min-height: 160px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.88rem;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .fallback .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .fallback .msg { font-size: 0.92rem; color: var(--muted); }
+
+  /* Sections */
+  .form-section {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 24px 26px;
+    margin-bottom: 22px;
+  }
+  .form-section .section-label {
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  /* Form fields */
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .field label .req { color: var(--accent); margin-left: 2px; }
+  .field .help {
+    display: block;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 6px;
+    line-height: 1.45;
+  }
+
+  .field input[type="text"],
+  .field input[type="url"],
+  .field input[type="email"],
+  .field input[type="number"],
+  .field input[type="date"],
+  .field select,
+  .field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 0.97rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  .field textarea {
+    min-height: 96px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(198, 93, 58, 0.15);
+  }
+  .field input.invalid,
+  .field textarea.invalid,
+  .field select.invalid {
+    border-color: var(--error);
+    background: #FCEFEC;
+  }
+  .field .field-warn {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--error);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .grid-2 .field { margin-bottom: 0; }
+
+  /* Dynamic rows */
+  .row-list { margin: 0; padding: 0; list-style: none; }
+  .dyn-row {
+    background: var(--soft-bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: grid;
+    gap: 10px;
+    align-items: end;
+  }
+  .dyn-row.schedule { grid-template-columns: 140px 1fr auto; }
+  .dyn-row.potluck { grid-template-columns: 140px 1fr 1fr 80px auto; }
+  .dyn-row.guest { grid-template-columns: 1fr 140px 1fr auto; }
+  .dyn-row label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .dyn-row input,
+  .dyn-row select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.94rem;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--surface);
+    font-family: inherit;
+    color: var(--text);
+  }
+  .dyn-row input:focus,
+  .dyn-row select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(198, 93, 58, 0.15);
+  }
+  .btn-remove {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--muted);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    height: 36px;
+    align-self: end;
+    font-family: inherit;
+  }
+  .btn-remove:hover { color: var(--error); border-color: var(--error); }
+
+  .btn-add {
+    margin-top: 4px;
+    background: transparent;
+    border: 1px dashed var(--rule);
+    color: var(--text);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.94rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.12s ease, color 0.12s ease;
+  }
+  .btn-add:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Mode picker / event picker */
+  .mode-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+
+  /* Output */
+  .output-section { margin-top: 12px; }
+  .output-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .btn {
+    display: inline-block;
+    padding: 11px 20px;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 0.96rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); color: #fff; }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--rule); }
+  .btn-secondary:hover { border-color: var(--text); }
+  .btn.copied {
+    background: var(--ok-bg);
+    color: var(--ok-text);
+    border-color: var(--ok-bg);
+  }
+  .btn.copied:hover { background: var(--ok-bg); color: var(--ok-text); }
+
+  .json-preview {
+    background: #1F1D1B;
+    color: #F5EFE8;
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    max-height: 400px;
+    overflow: auto;
+    white-space: pre;
+    margin: 0;
+  }
+
+  .status-line {
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin: 12px 0 0;
+  }
+  .status-line .warn-text { color: var(--warn-text); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 28px 0 40px;
+    color: var(--muted);
+    font-size: 0.88rem;
+    text-align: center;
+    margin-top: 48px;
+  }
+
+  @media (max-width: 720px) {
+    h1 { font-size: 1.8rem; }
+    .topnav-links { display: none; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .mode-bar { grid-template-columns: 1fr; }
+    .dyn-row.schedule,
+    .dyn-row.potluck,
+    .dyn-row.guest {
+      grid-template-columns: 1fr;
+    }
+    .btn-remove { justify-self: start; }
+    .form-section { padding: 20px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <a href="index.html" class="brand">Event Planner<span class="dot">.</span></a>
+    <div class="topnav-links">
+      <a href="index.html">Home</a>
+      <a href="https://github.com/danielxhe/event-planner">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page">
+  <div class="container">
+    <span class="eyebrow">Admin</span>
+    <h1>Event JSON builder</h1>
+    <p class="lead">Fill out the form, hit Copy, paste into <code>data/events.json</code> on GitHub. No build step required.</p>
+  </div>
+</header>
+
+<main class="container">
+
+  <div class="warn">
+    <strong>Heads up.</strong> This page is publicly accessible. Do not enter sensitive info. The form output is only useful if you commit it to the repo, so nothing here writes to anything on its own.
+  </div>
+
+  <div class="instructions">
+    <h2 style="margin-top: 0;">How to use</h2>
+    <ol>
+      <li>Pick "Create new event" or an existing event to edit.</li>
+      <li>Fill in the fields. The JSON preview at the bottom updates as you type.</li>
+      <li>Click <strong>Copy full events.json</strong>.</li>
+      <li>Open <a href="https://github.com/danielxhe/event-planner/edit/main/data/events.json" target="_blank" rel="noopener">data/events.json on GitHub</a>, select all, paste, commit.</li>
+      <li>GitHub Pages redeploys in roughly a minute. Share the event URL.</li>
+    </ol>
+  </div>
+
+  <div id="fallback" class="fallback" hidden>
+    <h3 style="margin-top: 0;">Could not auto-load events.json</h3>
+    <p class="msg">This usually happens when you open the file directly (file://) rather than over a server. Paste the current contents of <code>data/events.json</code> below and click Load.</p>
+    <textarea id="fallback-input" placeholder='{ "events": [ ... ] }'></textarea>
+    <div class="row">
+      <button id="fallback-load" class="btn btn-primary" type="button">Load pasted JSON</button>
+      <button id="fallback-skip" class="btn btn-secondary" type="button">Skip (start with empty list)</button>
+      <span id="fallback-msg" class="msg"></span>
+    </div>
+  </div>
+
+  <div class="mode-bar">
+    <div class="field" style="margin: 0;">
+      <label for="mode-select">Mode</label>
+      <select id="mode-select">
+        <option value="new">Create new event</option>
+        <option value="edit">Edit existing event</option>
+      </select>
+    </div>
+    <div class="field" id="event-picker-wrap" style="margin: 0; display: none;">
+      <label for="event-select">Pick event</label>
+      <select id="event-select"></select>
+    </div>
+  </div>
+
+  <form id="event-form" autocomplete="off" novalidate>
+
+    <div class="form-section">
+      <div class="section-label">Basics</div>
+      <h2>The essentials</h2>
+
+      <div class="field">
+        <label for="f-name">Event name<span class="req">*</span></label>
+        <input id="f-name" type="text" data-path="name" required>
+      </div>
+
+      <div class="field">
+        <label for="f-slug">Slug<span class="req">*</span></label>
+        <input id="f-slug" type="text" data-path="slug" required pattern="[a-z0-9-]+">
+        <span class="help">Used in the URL. Lowercase letters, numbers, and hyphens only. Auto-suggested from the name but you can edit.</span>
+        <div id="slug-warn" class="field-warn" hidden></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="f-status">Status</label>
+          <select id="f-status" data-path="status">
+            <option value="upcoming">upcoming</option>
+            <option value="planning">planning</option>
+            <option value="past">past</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-date">Date</label>
+          <input id="f-date" type="date" data-path="date">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="f-start">Start time</label>
+          <input id="f-start" type="text" data-path="startTime" placeholder="7:00 PM">
+        </div>
+        <div class="field">
+          <label for="f-end">End time</label>
+          <input id="f-end" type="text" data-path="endTime" placeholder="10:00 PM">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-desc">Description</label>
+        <textarea id="f-desc" data-path="description" placeholder="One paragraph guests see on the event page."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="f-dress">Dress code</label>
+        <input id="f-dress" type="text" data-path="dressCode" placeholder="Casual">
+      </div>
+
+      <div class="field">
+        <label for="f-cover">Cover image URL</label>
+        <input id="f-cover" type="url" data-path="coverImage" placeholder="https://images.unsplash.com/...">
+        <span class="help">Grab one from <a href="https://unsplash.com" target="_blank" rel="noopener">unsplash.com</a> (free). Right-click the image, pick "Copy image address," paste here.</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="f-rsvp">RSVP form URL</label>
+          <input id="f-rsvp" type="text" data-path="rsvpFormUrl" placeholder="#">
+          <span class="help">Leave as <code>#</code> if no Form yet.</span>
+        </div>
+        <div class="field">
+          <label for="f-deadline">RSVP deadline</label>
+          <input id="f-deadline" type="date" data-path="rsvpDeadline">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Venue</div>
+      <h2>Where it happens</h2>
+      <div class="field">
+        <label for="f-venue-name">Venue name</label>
+        <input id="f-venue-name" type="text" data-path="venue.name">
+      </div>
+      <div class="field">
+        <label for="f-venue-addr">Address</label>
+        <input id="f-venue-addr" type="text" data-path="venue.address">
+      </div>
+      <div class="field">
+        <label for="f-venue-map">Map URL (optional)</label>
+        <input id="f-venue-map" type="url" data-path="venue.mapUrl" placeholder="https://maps.google.com/...">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Host</div>
+      <h2>Who's running it</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label for="f-host-name">Host name</label>
+          <input id="f-host-name" type="text" data-path="host.name">
+        </div>
+        <div class="field">
+          <label for="f-host-contact">Contact (email)</label>
+          <input id="f-host-contact" type="email" data-path="host.contact" placeholder="you@example.com">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Schedule</div>
+      <h2>Run of show</h2>
+      <ul id="schedule-list" class="row-list"></ul>
+      <button type="button" id="add-schedule" class="btn-add">+ Add schedule item</button>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Potluck</div>
+      <h2>Bring a dish</h2>
+      <p style="color: var(--muted); font-size: 0.92rem; margin-top: -4px;">Leave item and claimed-by blank to create an open slot guests can claim.</p>
+      <ul id="potluck-list" class="row-list"></ul>
+      <button type="button" id="add-potluck" class="btn-add">+ Add potluck slot</button>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">Guests</div>
+      <h2>The list</h2>
+      <ul id="guest-list" class="row-list"></ul>
+      <button type="button" id="add-guest" class="btn-add">+ Add guest</button>
+    </div>
+
+  </form>
+
+  <div class="output-section">
+    <div class="form-section">
+      <div class="section-label">Output</div>
+      <h2>JSON preview</h2>
+      <div class="output-actions">
+        <button id="copy-full" class="btn btn-primary" type="button">Copy full events.json</button>
+        <button id="copy-one" class="btn btn-secondary" type="button">Copy only this event</button>
+        <a class="btn btn-secondary" href="https://github.com/danielxhe/event-planner/edit/main/data/events.json" target="_blank" rel="noopener">Open events.json on GitHub</a>
+      </div>
+      <pre id="json-preview" class="json-preview">{ }</pre>
+      <p class="status-line" id="status-line"></p>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div class="container">
+    Admin tool for <a href="index.html">Event Planner</a>. Output is plain JSON, paste it into the repo to publish.
+  </div>
+</footer>
+
+<script>
+(function() {
+
+  // ---------- State ----------
+  var state = {
+    loaded: false,
+    events: [],          // array from events.json
+    originalSlug: null,  // slug of the event currently being edited, null = new
+    current: blankEvent()
+  };
+
+  function blankEvent() {
+    return {
+      slug: "",
+      name: "",
+      status: "upcoming",
+      date: "",
+      startTime: "",
+      endTime: "",
+      venue: { name: "", address: "", mapUrl: "" },
+      dressCode: "",
+      description: "",
+      coverImage: "",
+      rsvpFormUrl: "#",
+      rsvpDeadline: "",
+      host: { name: "", contact: "" },
+      schedule: [],
+      potluck: [],
+      guests: []
+    };
+  }
+
+  // ---------- Helpers ----------
+  function slugify(s) {
+    return String(s || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+  }
+
+  function getPath(obj, path) {
+    var parts = path.split(".");
+    var cur = obj;
+    for (var i = 0; i < parts.length; i++) {
+      if (cur == null) return "";
+      cur = cur[parts[i]];
+    }
+    return cur == null ? "" : cur;
+  }
+
+  function setPath(obj, path, value) {
+    var parts = path.split(".");
+    var cur = obj;
+    for (var i = 0; i < parts.length - 1; i++) {
+      if (cur[parts[i]] == null || typeof cur[parts[i]] !== "object") {
+        cur[parts[i]] = {};
+      }
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length - 1]] = value;
+  }
+
+  // ---------- Form population ----------
+  function populateForm() {
+    var inputs = document.querySelectorAll("[data-path]");
+    inputs.forEach(function(el) {
+      var path = el.getAttribute("data-path");
+      var val = getPath(state.current, path);
+      el.value = val == null ? "" : String(val);
+    });
+    renderScheduleList();
+    renderPotluckList();
+    renderGuestList();
+    updatePreview();
+    checkSlugCollision();
+  }
+
+  function readScalarsFromForm() {
+    var inputs = document.querySelectorAll("[data-path]");
+    inputs.forEach(function(el) {
+      var path = el.getAttribute("data-path");
+      setPath(state.current, path, el.value);
+    });
+  }
+
+  // ---------- Dynamic lists ----------
+  function renderScheduleList() {
+    var list = document.getElementById("schedule-list");
+    list.innerHTML = "";
+    state.current.schedule.forEach(function(item, idx) {
+      var li = document.createElement("li");
+      li.className = "dyn-row schedule";
+      li.innerHTML =
+        '<div><label>Time</label><input type="text" data-kind="schedule" data-idx="' + idx + '" data-field="time" placeholder="7:00 PM"></div>' +
+        '<div><label>Activity</label><input type="text" data-kind="schedule" data-idx="' + idx + '" data-field="activity" placeholder="What happens"></div>' +
+        '<button type="button" class="btn-remove" data-remove="schedule" data-idx="' + idx + '">Remove</button>';
+      li.querySelector('[data-field="time"]').value = item.time || "";
+      li.querySelector('[data-field="activity"]').value = item.activity || "";
+      list.appendChild(li);
+    });
+  }
+
+  function renderPotluckList() {
+    var list = document.getElementById("potluck-list");
+    list.innerHTML = "";
+    var cats = ["Appetizer", "Main", "Side", "Dessert", "Drinks", "Supplies"];
+    state.current.potluck.forEach(function(item, idx) {
+      var li = document.createElement("li");
+      li.className = "dyn-row potluck";
+      var opts = cats.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join("");
+      li.innerHTML =
+        '<div><label>Category</label><select data-kind="potluck" data-idx="' + idx + '" data-field="category">' + opts + '</select></div>' +
+        '<div><label>Item (optional)</label><input type="text" data-kind="potluck" data-idx="' + idx + '" data-field="item" placeholder="Blank = open slot"></div>' +
+        '<div><label>Claimed by (optional)</label><input type="text" data-kind="potluck" data-idx="' + idx + '" data-field="claimedBy" placeholder="Blank = open slot"></div>' +
+        '<div><label>Serves</label><input type="number" min="1" data-kind="potluck" data-idx="' + idx + '" data-field="serves"></div>' +
+        '<button type="button" class="btn-remove" data-remove="potluck" data-idx="' + idx + '">Remove</button>';
+      li.querySelector('[data-field="category"]').value = item.category || "Main";
+      li.querySelector('[data-field="item"]').value = item.item || "";
+      li.querySelector('[data-field="claimedBy"]').value = item.claimedBy || "";
+      li.querySelector('[data-field="serves"]').value = item.serves == null ? 6 : item.serves;
+      list.appendChild(li);
+    });
+  }
+
+  function renderGuestList() {
+    var list = document.getElementById("guest-list");
+    list.innerHTML = "";
+    state.current.guests.forEach(function(g, idx) {
+      var li = document.createElement("li");
+      li.className = "dyn-row guest";
+      li.innerHTML =
+        '<div><label>Name</label><input type="text" data-kind="guest" data-idx="' + idx + '" data-field="name"></div>' +
+        '<div><label>Status</label><select data-kind="guest" data-idx="' + idx + '" data-field="status">' +
+          '<option value="confirmed">confirmed</option>' +
+          '<option value="maybe">maybe</option>' +
+          '<option value="no-response">no-response</option>' +
+        '</select></div>' +
+        '<div><label>Dietary (optional)</label><input type="text" data-kind="guest" data-idx="' + idx + '" data-field="dietary" placeholder="Vegetarian, GF, etc."></div>' +
+        '<button type="button" class="btn-remove" data-remove="guest" data-idx="' + idx + '">Remove</button>';
+      li.querySelector('[data-field="name"]').value = g.name || "";
+      li.querySelector('[data-field="status"]').value = g.status || "no-response";
+      li.querySelector('[data-field="dietary"]').value = g.dietary || "";
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- Build clean event object for output ----------
+  function buildCurrentForOutput() {
+    var src = state.current;
+    var out = {
+      slug: (src.slug || "").trim(),
+      name: (src.name || "").trim(),
+      status: src.status || "upcoming",
+      date: src.date || "",
+      startTime: src.startTime || "",
+      endTime: src.endTime || "",
+      venue: {
+        name: (src.venue && src.venue.name) || "",
+        address: (src.venue && src.venue.address) || "",
+        mapUrl: (src.venue && src.venue.mapUrl) || ""
+      },
+      dressCode: src.dressCode || "",
+      description: src.description || "",
+      coverImage: src.coverImage || "",
+      rsvpFormUrl: src.rsvpFormUrl || "#",
+      rsvpDeadline: src.rsvpDeadline || "",
+      host: {
+        name: (src.host && src.host.name) || "",
+        contact: (src.host && src.host.contact) || ""
+      },
+      schedule: (src.schedule || []).map(function(s) {
+        return { time: s.time || "", activity: s.activity || "" };
+      }),
+      potluck: (src.potluck || []).map(function(p) {
+        var serves = parseInt(p.serves, 10);
+        return {
+          category: p.category || "Main",
+          item: p.item || "",
+          claimedBy: p.claimedBy || "",
+          serves: isNaN(serves) ? 6 : serves
+        };
+      }),
+      guests: (src.guests || []).map(function(g) {
+        var out = {
+          name: g.name || "",
+          status: g.status || "no-response"
+        };
+        if (g.dietary) out.dietary = g.dietary;
+        return out;
+      })
+    };
+    return out;
+  }
+
+  function buildFullJson() {
+    var clean = buildCurrentForOutput();
+    var arr = state.events.slice();
+
+    if (state.originalSlug) {
+      // Replace by original slug (handles slug rename)
+      var idx = arr.findIndex(function(e) { return e.slug === state.originalSlug; });
+      if (idx >= 0) {
+        arr[idx] = clean;
+      } else {
+        arr.push(clean);
+      }
+    } else {
+      // New event: replace if slug exists, else append
+      var existing = arr.findIndex(function(e) { return e.slug === clean.slug; });
+      if (existing >= 0 && clean.slug) {
+        arr[existing] = clean;
+      } else {
+        arr.push(clean);
+      }
+    }
+    return { events: arr };
+  }
+
+  function updatePreview() {
+    var full = buildFullJson();
+    document.getElementById("json-preview").textContent = JSON.stringify(full, null, 2);
+  }
+
+  // ---------- Slug collision check ----------
+  function checkSlugCollision() {
+    var warn = document.getElementById("slug-warn");
+    var slug = (state.current.slug || "").trim();
+    if (!slug) { warn.hidden = true; return; }
+    var collides = state.events.some(function(e) {
+      return e.slug === slug && e.slug !== state.originalSlug;
+    });
+    if (collides) {
+      warn.hidden = false;
+      warn.textContent = "Warning: this slug already exists. Saving will overwrite the existing event.";
+    } else {
+      warn.hidden = true;
+    }
+  }
+
+  // ---------- Event picker ----------
+  function refreshEventPicker() {
+    var sel = document.getElementById("event-select");
+    sel.innerHTML = "";
+    if (state.events.length === 0) {
+      var opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "(no events loaded)";
+      sel.appendChild(opt);
+      return;
+    }
+    state.events.forEach(function(e) {
+      var opt = document.createElement("option");
+      opt.value = e.slug;
+      opt.textContent = e.name + " (" + e.slug + ")";
+      sel.appendChild(opt);
+    });
+  }
+
+  function loadEventForEdit(slug) {
+    var ev = state.events.find(function(e) { return e.slug === slug; });
+    if (!ev) {
+      state.current = blankEvent();
+      state.originalSlug = null;
+    } else {
+      // Deep clone to avoid mutating the loaded array
+      state.current = JSON.parse(JSON.stringify(ev));
+      // Backfill defaults so the form has something to bind to
+      if (!state.current.venue) state.current.venue = { name: "", address: "", mapUrl: "" };
+      if (!state.current.host) state.current.host = { name: "", contact: "" };
+      if (!state.current.schedule) state.current.schedule = [];
+      if (!state.current.potluck) state.current.potluck = [];
+      if (!state.current.guests) state.current.guests = [];
+      state.originalSlug = ev.slug;
+    }
+    populateForm();
+  }
+
+  // ---------- Event wiring ----------
+  function wireForm() {
+    var form = document.getElementById("event-form");
+
+    form.addEventListener("input", function(ev) {
+      var t = ev.target;
+
+      // Dynamic row inputs
+      var kind = t.getAttribute("data-kind");
+      if (kind) {
+        var idx = parseInt(t.getAttribute("data-idx"), 10);
+        var field = t.getAttribute("data-field");
+        if (kind === "schedule") {
+          state.current.schedule[idx][field] = t.value;
+        } else if (kind === "potluck") {
+          if (field === "serves") {
+            var n = parseInt(t.value, 10);
+            state.current.potluck[idx][field] = isNaN(n) ? "" : n;
+          } else {
+            state.current.potluck[idx][field] = t.value;
+          }
+        } else if (kind === "guest") {
+          state.current.guests[idx][field] = t.value;
+        }
+        updatePreview();
+        return;
+      }
+
+      // Scalar field
+      var path = t.getAttribute("data-path");
+      if (path) {
+        setPath(state.current, path, t.value);
+
+        // Auto-suggest slug from name if slug is empty / still auto-derived
+        if (path === "name") {
+          var slugEl = document.getElementById("f-slug");
+          // Only auto-update slug if user hasn't typed in it OR it still matches a slugified prior name
+          if (!slugEl.dataset.touched) {
+            var s = slugify(t.value);
+            state.current.slug = s;
+            slugEl.value = s;
+          }
+        }
+        if (path === "slug") {
+          // Force lowercase / clean as they type
+          var cleaned = t.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+          if (cleaned !== t.value) {
+            t.value = cleaned;
+            state.current.slug = cleaned;
+          }
+        }
+        checkSlugCollision();
+        updatePreview();
+      }
+    });
+
+    // Mark slug as user-touched
+    document.getElementById("f-slug").addEventListener("input", function(e) {
+      e.target.dataset.touched = "1";
+    });
+
+    // Required field validation on blur
+    form.addEventListener("blur", function(ev) {
+      var t = ev.target;
+      if (t.tagName !== "INPUT" && t.tagName !== "TEXTAREA" && t.tagName !== "SELECT") return;
+      if (t.hasAttribute("required")) {
+        if (!t.value.trim()) {
+          t.classList.add("invalid");
+        } else {
+          t.classList.remove("invalid");
+        }
+      }
+    }, true);
+
+    // Remove buttons (delegated)
+    form.addEventListener("click", function(ev) {
+      var t = ev.target;
+      var rk = t.getAttribute("data-remove");
+      if (!rk) return;
+      var idx = parseInt(t.getAttribute("data-idx"), 10);
+      if (rk === "schedule") state.current.schedule.splice(idx, 1);
+      if (rk === "potluck") state.current.potluck.splice(idx, 1);
+      if (rk === "guest") state.current.guests.splice(idx, 1);
+      if (rk === "schedule") renderScheduleList();
+      if (rk === "potluck") renderPotluckList();
+      if (rk === "guest") renderGuestList();
+      updatePreview();
+    });
+
+    // Add buttons
+    document.getElementById("add-schedule").addEventListener("click", function() {
+      state.current.schedule.push({ time: "", activity: "" });
+      renderScheduleList();
+      updatePreview();
+    });
+    document.getElementById("add-potluck").addEventListener("click", function() {
+      state.current.potluck.push({ category: "Main", item: "", claimedBy: "", serves: 6 });
+      renderPotluckList();
+      updatePreview();
+    });
+    document.getElementById("add-guest").addEventListener("click", function() {
+      state.current.guests.push({ name: "", status: "no-response", dietary: "" });
+      renderGuestList();
+      updatePreview();
+    });
+
+    // Mode switch
+    document.getElementById("mode-select").addEventListener("change", function(e) {
+      var mode = e.target.value;
+      var pickerWrap = document.getElementById("event-picker-wrap");
+      if (mode === "edit") {
+        pickerWrap.style.display = "";
+        refreshEventPicker();
+        var sel = document.getElementById("event-select");
+        if (sel.value) loadEventForEdit(sel.value);
+      } else {
+        pickerWrap.style.display = "none";
+        state.current = blankEvent();
+        state.originalSlug = null;
+        // Reset the slug-touched flag for a fresh form
+        var slugEl = document.getElementById("f-slug");
+        delete slugEl.dataset.touched;
+        populateForm();
+      }
+    });
+
+    document.getElementById("event-select").addEventListener("change", function(e) {
+      var slug = e.target.value;
+      if (slug) {
+        var slugEl = document.getElementById("f-slug");
+        slugEl.dataset.touched = "1"; // existing slug = user-defined
+        loadEventForEdit(slug);
+      }
+    });
+
+    // Copy buttons
+    document.getElementById("copy-full").addEventListener("click", function() {
+      var txt = JSON.stringify(buildFullJson(), null, 2);
+      copyToClipboard(txt, this);
+    });
+    document.getElementById("copy-one").addEventListener("click", function() {
+      var txt = JSON.stringify(buildCurrentForOutput(), null, 2);
+      copyToClipboard(txt, this);
+    });
+  }
+
+  function copyToClipboard(text, btn) {
+    var origText = btn.textContent;
+    var done = function() {
+      btn.classList.add("copied");
+      btn.textContent = "Copied!";
+      setTimeout(function() {
+        btn.classList.remove("copied");
+        btn.textContent = origText;
+      }, 2000);
+    };
+    var fail = function() {
+      btn.textContent = "Copy failed (select + Ctrl+C below)";
+      setTimeout(function() { btn.textContent = origText; }, 2500);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function() { tryLegacy(text, done, fail); });
+    } else {
+      tryLegacy(text, done, fail);
+    }
+  }
+
+  function tryLegacy(text, done, fail) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (ok) done(); else fail();
+    } catch (e) { fail(); }
+  }
+
+  // ---------- Fallback (paste JSON) ----------
+  function setupFallback() {
+    var panel = document.getElementById("fallback");
+    panel.hidden = false;
+
+    document.getElementById("fallback-load").addEventListener("click", function() {
+      var raw = document.getElementById("fallback-input").value.trim();
+      var msg = document.getElementById("fallback-msg");
+      if (!raw) { msg.textContent = "Paste the JSON first."; return; }
+      try {
+        var parsed = JSON.parse(raw);
+        var evs = (parsed && parsed.events) || [];
+        if (!Array.isArray(evs)) throw new Error("Expected a top-level 'events' array.");
+        state.events = evs;
+        state.loaded = true;
+        msg.textContent = "Loaded " + evs.length + " event(s).";
+        panel.hidden = true;
+        finishInit();
+      } catch (err) {
+        msg.textContent = "Parse error: " + err.message;
+      }
+    });
+
+    document.getElementById("fallback-skip").addEventListener("click", function() {
+      state.events = [];
+      state.loaded = true;
+      panel.hidden = true;
+      finishInit();
+    });
+  }
+
+  function finishInit() {
+    refreshEventPicker();
+    populateForm();
+    var s = document.getElementById("status-line");
+    s.textContent = "Loaded " + state.events.length + " existing event(s). Currently editing: " +
+      (state.originalSlug ? state.originalSlug : "new event");
+  }
+
+  // ---------- Boot ----------
+  wireForm();
+
+  fetch("data/events.json", { cache: "no-store" })
+    .then(function(r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      state.events = (data && data.events) || [];
+      state.loaded = true;
+      finishInit();
+    })
+    .catch(function(err) {
+      setupFallback();
+      var msg = document.getElementById("fallback-msg");
+      msg.textContent = "Auto-load failed: " + err.message;
+    });
+
+})();
+</script>
+
+</body>
+</html>

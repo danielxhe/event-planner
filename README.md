@@ -77,6 +77,25 @@ No build step, no framework. The page is pure HTML, CSS, and vanilla JS, so the 
 
 ---
 
+## Admin form
+
+For non-coders who don't want to hand-edit JSON, the repo ships a form-based editor that generates the `events.json` for you.
+
+- **URL:** [https://danielxhe.github.io/event-planner/admin.html](https://danielxhe.github.io/event-planner/admin.html)
+- **What it does:** Builds and edits the `events.json` schema through a form. Live JSON preview, copy-to-clipboard, slug auto-suggest, and an "edit existing event" mode that loads any current event into the form.
+
+### Workflow
+
+1. Open the admin URL
+2. Pick "Create new event" or an existing one to edit
+3. Fill in the fields (the JSON preview updates live)
+4. Click **Copy full events.json**
+5. Open [`data/events.json` on GitHub](https://github.com/danielxhe/event-planner/edit/main/data/events.json), select all, paste, commit
+
+The page is publicly accessible (no auth). That's fine because it doesn't write to anything: it only generates JSON for you to paste into the repo. Anyone editing the live data still has to go through a GitHub commit.
+
+---
+
 ## Project status
 
 🟢 **Concept & scope locked** (2026-05-25)
