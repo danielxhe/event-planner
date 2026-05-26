@@ -7,6 +7,7 @@ import type { DietaryRestriction } from '@/lib/schema';
 interface Props {
   slug: string;
   plusOnesMax?: number;
+  targetHeadcount?: number | null;
 }
 
 const STORAGE_KEY = 'ep:phone';
@@ -17,7 +18,7 @@ const DIETARY_OPTIONS: DietaryRestriction[] = [
   'Dairy-Free', 'Halal', 'Kosher', 'Other',
 ];
 
-export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
+export function RsvpForm({ slug, plusOnesMax = 2, targetHeadcount }: Props) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -113,6 +114,12 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
 
   return (
     <form onSubmit={submit} className="rounded-xl bg-slate-900 p-6 space-y-4">
+      {targetHeadcount && targetHeadcount > 0 && (
+        <p className="rounded-lg bg-purple-500/10 border border-purple-500/20 px-3 py-2 text-xs text-purple-200">
+          🍴 Bringing food or drinks? Aim for <span className="font-medium">~{targetHeadcount} servings</span>.
+        </p>
+      )}
+
       <div className="flex gap-2">
         {(['Yes', 'Maybe', 'No'] as const).map(s => (
           <button
