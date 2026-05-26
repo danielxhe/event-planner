@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
-import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent } from '@/lib/notion';
+import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent, listGuestsByIds } from '@/lib/notion';
 import { hostSecretValid } from '@/lib/auth';
 import { SmartPotluckPanel } from '@/components/SmartPotluckPanel';
 import { HostItemAdder } from '@/components/HostItemAdder';
+import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
 import type { PotluckCategory } from '@/lib/schema';
 
 interface PageProps {
@@ -35,6 +36,36 @@ export default async function HostPage({ params }: PageProps) {
   const yes = rsvps.filter(r => r.status === 'Yes');
   const maybe = rsvps.filter(r => r.status === 'Maybe');
   const no = rsvps.filter(r => r.status === 'No');
+
+  // Pull phones for Yes/Maybe so the reminder panel can text them.
+  const reminderRsvps = [...yes, ...maybe];
+  const guests = await listGuestsByIds(reminderRsvps.map(r => r.guestId));
+  const guestById = new Map(guests.map(g => [g.id, g]));
+  const recipients: Recipient[] = reminderRsvps
+    .map(r => {
+      const g = guestById.get(r.guestId);
+      if (!g?.phone) return null;
+      return {
+        name: g.name || r.title || g.phone,
+        phone: g.phone,
+        status: r.status as 'Yes' | 'Maybe',
+      };
+    })
+    .filter((r): r is Recipient => r !== null);
+
+  const eventDateStr = event.date
+    ? new Date(event.date).toLocaleString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : 'soon';
+  const defaultReminderMessage =
+    `Hey! Just a reminder about ${event.name} — ${eventDateStr}` +
+    (event.venueName ? ` at ${event.venueName}` : '') +
+    `. Can't wait to see you!`;
   const plusOnesConfirmed = yes.reduce((s, r) => s + (r.plusOnes ?? 0), 0);
   const plusOnesMaybe = maybe.reduce((s, r) => s + (r.plusOnes ?? 0), 0);
   const estimatedHeadcount = Math.round(
@@ -184,6 +215,13 @@ export default async function HostPage({ params }: PageProps) {
             </table>
           )}
         </section>
+
+        {/* Reminder panel */}
+        <ReminderPanel
+          recipients={recipients}
+          isSurprise={event.isSurprise}
+          defaultMessage={defaultReminderMessage}
+        />
 
         <footer className="text-xs text-slate-500 text-center pt-8">
           🔒 Host-only URL. Don&apos;t share. Bookmark this page.

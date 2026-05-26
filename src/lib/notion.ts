@@ -233,6 +233,24 @@ export async function listRsvpsByEvent(eventId: string): Promise<Rsvp[]> {
   return res.results.map(pageToRsvp);
 }
 
+export async function listGuestsByIds(ids: string[]): Promise<Guest[]> {
+  if (ids.length === 0) return [];
+  const results = await Promise.all(
+    ids.map(async id => {
+      const res = await fetch(`https://api.notion.com/v1/pages/${id}`, {
+        headers: {
+          Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
+          'Notion-Version': '2025-09-03',
+        },
+        cache: 'no-store',
+      });
+      if (!res.ok) return null;
+      return pageToGuest((await res.json()) as PageObjectResponse);
+    })
+  );
+  return results.filter((g): g is Guest => g !== null);
+}
+
 export async function listPotluckByEvent(eventId: string): Promise<PotluckItem[]> {
   const res = await queryDS(DSID.potluck, {
     filter: { property: 'Event', relation: { contains: eventId } },
