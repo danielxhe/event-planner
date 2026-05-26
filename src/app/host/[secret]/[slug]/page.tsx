@@ -3,6 +3,7 @@ import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent, listGuestsByIds 
 import { hostSecretValid } from '@/lib/auth';
 import { SmartPotluckPanel } from '@/components/SmartPotluckPanel';
 import { HostItemAdder } from '@/components/HostItemAdder';
+import { PotluckDeleteButton } from '@/components/PotluckDeleteButton';
 import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
 import type { PotluckCategory } from '@/lib/schema';
 
@@ -161,11 +162,20 @@ export default async function HostPage({ params }: PageProps) {
                               <span key={t} className="text-[10px] rounded bg-slate-700 text-slate-300 px-1.5 py-0.5">{t}</span>
                             ))}
                           </div>
-                          <span className="text-xs text-slate-400 ml-2 flex-shrink-0">
-                            {item.claimedByGuestId
-                              ? guestNames[item.claimedByGuestId] ?? 'Claimed'
-                              : '🟡 open'}
-                          </span>
+                          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                            <span className="text-xs text-slate-400">
+                              {item.claimedByGuestId
+                                ? guestNames[item.claimedByGuestId] ?? 'Claimed'
+                                : '🟡 open'}
+                            </span>
+                            <PotluckDeleteButton
+                              slug={event.slug}
+                              hostSecret={event.hostSecret}
+                              itemId={item.id}
+                              itemLabel={item.item}
+                              isClaimed={!!item.claimedByGuestId}
+                            />
+                          </div>
                         </li>
                       ))}
                     </ul>

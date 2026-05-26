@@ -456,6 +456,10 @@ export async function createPotluckItem(input: CreatePotluckInput): Promise<Potl
   return pageToPotluck(created);
 }
 
+export async function archivePotluckItem(id: string): Promise<void> {
+  await notionRequest('PATCH', `/v1/pages/${id}`, { archived: true });
+}
+
 export interface CreateSuggestionRunInput {
   eventId: string;
   runLabel: string;
