@@ -188,6 +188,8 @@ export function pageToSuggestionRun(p: Page): SuggestionRun {
 
 // Notion's newer SDK exposes data sources via dataSources.query.
 // If the SDK version doesn't expose it directly, fall back to fetch.
+// cache: 'no-store' — dedup lookups (findGuestByPhone, findRsvp) need
+// read-after-write; a stale "not found" answer produces duplicate rows.
 async function queryDS(dsId: string, body: Record<string, unknown> = {}): Promise<QueryResponse> {
   const res = await fetch(`https://api.notion.com/v1/data_sources/${dsId}/query`, {
     method: 'POST',
@@ -197,8 +199,7 @@ async function queryDS(dsId: string, body: Record<string, unknown> = {}): Promis
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
-    // Vercel: cache event reads briefly on the edge
-    next: { revalidate: 30 },
+    cache: 'no-store',
   });
   if (!res.ok) throw new Error(`Notion query failed: ${res.status} ${await res.text()}`);
   return res.json();
