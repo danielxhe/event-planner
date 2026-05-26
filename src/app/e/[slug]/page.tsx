@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent } from '@/lib/notion';
+import { formatPhoneForDisplay } from '@/lib/phone';
 import { RsvpForm } from '@/components/RsvpForm';
 import { PotluckGrid } from '@/components/PotluckGrid';
 
@@ -57,7 +58,7 @@ export default async function EventPage({ params }: PageProps) {
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{event.name}</h1>
           <p className="text-lg text-slate-300">{dateStr}</p>
           {event.venueName && (
-            <p className="text-slate-400">
+            <div className="text-slate-400 leading-snug">
               {event.venueMapUrl ? (
                 <a href={event.venueMapUrl} target="_blank" rel="noopener noreferrer" className="hover:text-slate-200 underline-offset-4 hover:underline">
                   📍 {event.venueName}
@@ -65,6 +66,16 @@ export default async function EventPage({ params }: PageProps) {
               ) : (
                 <>📍 {event.venueName}</>
               )}
+              {event.venueAddress && (
+                <div className="text-sm text-slate-500 pl-6">{event.venueAddress}</div>
+              )}
+            </div>
+          )}
+          {event.hostPhone && (
+            <p className="text-slate-400">
+              <a href={`sms:${event.hostPhone}`} className="hover:text-slate-200 underline-offset-4 hover:underline">
+                💬 Text the host: {formatPhoneForDisplay(event.hostPhone)}
+              </a>
             </p>
           )}
           {event.dressCode && (
@@ -109,12 +120,6 @@ export default async function EventPage({ params }: PageProps) {
               ))}
             </div>
           </div>
-        </section>
-      )}
-
-      {event.hostPhone && (
-        <section className="px-6 py-4 text-center text-sm text-slate-500">
-          Questions? <a href={`sms:${event.hostPhone}`} className="text-slate-300 underline-offset-4 hover:underline">Text the host</a>
         </section>
       )}
 
