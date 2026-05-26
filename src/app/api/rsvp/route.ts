@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { findEventBySlug, upsertGuestByPhone, upsertRsvp } from '@/lib/notion';
 import { normalizePhone } from '@/lib/phone';
+import type { DietaryRestriction } from '@/lib/schema';
+
+const DIETARY_OPTIONS: DietaryRestriction[] = [
+  'Vegetarian', 'Vegan', 'Gluten-Free', 'Nut Allergy',
+  'Dairy-Free', 'Halal', 'Kosher', 'Other',
+];
 
 interface RsvpBody {
   slug: string;
@@ -10,6 +16,7 @@ interface RsvpBody {
   plusOnes?: number;
   notes?: string;
   email?: string;
+  dietaryRestrictions?: string[];
   dietaryNotes?: string;
 }
 
@@ -36,11 +43,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 });
   }
 
+  const dietaryRestrictions = Array.isArray(body.dietaryRestrictions)
+    ? (body.dietaryRestrictions.filter(r => DIETARY_OPTIONS.includes(r as DietaryRestriction)) as DietaryRestriction[])
+    : undefined;
+
   const guest = await upsertGuestByPhone({
     phoneRaw: phone,
     name: body.name.trim(),
     email: body.email?.trim() || undefined,
-    dietaryNotes: body.dietaryNotes?.trim() || undefined,
+    dietaryRestrictions,
+    dietaryNotes: body.dietaryNotes?.trim(),
   });
 
   const rsvp = await upsertRsvp({
@@ -63,6 +75,8 @@ export async function POST(req: Request) {
       status: rsvp.status,
       plusOnes: rsvp.plusOnes,
       notes: rsvp.notes,
+      dietaryRestrictions: guest.dietaryRestrictions,
+      dietaryNotes: guest.dietaryNotes,
     },
   });
 }

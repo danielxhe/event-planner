@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import type { DietaryRestriction } from '@/lib/schema';
 
 interface Props {
   slug: string;
@@ -11,6 +12,11 @@ interface Props {
 const STORAGE_KEY = 'ep:phone';
 const NAME_KEY = 'ep:name';
 
+const DIETARY_OPTIONS: DietaryRestriction[] = [
+  'Vegetarian', 'Vegan', 'Gluten-Free', 'Nut Allergy',
+  'Dairy-Free', 'Halal', 'Kosher', 'Other',
+];
+
 export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -18,10 +24,23 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
   const [status, setStatus] = useState<'Yes' | 'Maybe' | 'No'>('Yes');
   const [plusOnes, setPlusOnes] = useState(0);
   const [notes, setNotes] = useState('');
+  const [dietary, setDietary] = useState<DietaryRestriction[]>([]);
+  const [dietaryNotes, setDietaryNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [saved, setSaved] = useState<{ name: string; status: string; plusOnes: number; notes: string } | null>(null);
+  const [saved, setSaved] = useState<{
+    name: string;
+    status: string;
+    plusOnes: number;
+    notes: string;
+    dietaryRestrictions: DietaryRestriction[];
+    dietaryNotes: string;
+  } | null>(null);
+
+  function toggleDietary(opt: DietaryRestriction) {
+    setDietary(prev => prev.includes(opt) ? prev.filter(d => d !== opt) : [...prev, opt]);
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -48,6 +67,8 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
           status,
           plusOnes,
           notes: notes.trim(),
+          dietaryRestrictions: dietary,
+          dietaryNotes: dietaryNotes.trim(),
         }),
       });
       const data = await res.json();
@@ -70,11 +91,17 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
       <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-6">
         <p className="text-emerald-300 font-medium">RSVP received ✨</p>
         {saved && (
-          <p className="mt-2 text-sm text-emerald-100">
-            Saved as <span className="font-medium">{saved.name}</span> · {saved.status}
-            {saved.status !== 'No' && saved.plusOnes > 0 && ` · +${saved.plusOnes}`}
-            {saved.notes && ` · "${saved.notes}"`}
-          </p>
+          <div className="mt-2 text-sm text-emerald-100 space-y-1">
+            <p>
+              Saved as <span className="font-medium">{saved.name}</span> · {saved.status}
+              {saved.status !== 'No' && saved.plusOnes > 0 && ` · +${saved.plusOnes}`}
+            </p>
+            {saved.dietaryRestrictions.length > 0 && (
+              <p>Dietary: {saved.dietaryRestrictions.join(', ')}</p>
+            )}
+            {saved.dietaryNotes && <p className="text-emerald-200/80">&ldquo;{saved.dietaryNotes}&rdquo;</p>}
+            {saved.notes && <p className="text-emerald-200/80">Note to host: {saved.notes}</p>}
+          </div>
         )}
         <p className="mt-2 text-sm text-emerald-200">
           You can now claim potluck items below. Need to change your RSVP?{' '}
@@ -136,6 +163,38 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
             value={plusOnes}
             onChange={e => setPlusOnes(Math.max(0, Math.min(plusOnesMax, Number(e.target.value) || 0)))}
             className="w-24 rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 focus:border-purple-500 focus:outline-none"
+          />
+        </div>
+      )}
+
+      {status !== 'No' && (
+        <div>
+          <label className="block text-sm text-slate-400 mb-2">Dietary restrictions (optional)</label>
+          <div className="flex flex-wrap gap-2">
+            {DIETARY_OPTIONS.map(opt => {
+              const on = dietary.includes(opt);
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => toggleDietary(opt)}
+                  className={`rounded-full px-3 py-1 text-xs border transition ${
+                    on
+                      ? 'bg-purple-500/30 border-purple-400 text-purple-100'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            type="text"
+            placeholder="Allergy specifics or notes (optional)"
+            value={dietaryNotes}
+            onChange={e => setDietaryNotes(e.target.value)}
+            className="mt-2 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm placeholder-slate-500 focus:border-purple-500 focus:outline-none"
           />
         </div>
       )}

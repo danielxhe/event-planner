@@ -289,6 +289,7 @@ export interface UpsertGuestInput {
   phoneRaw: string;
   name: string;
   email?: string;
+  dietaryRestrictions?: DietaryRestriction[];
   dietaryNotes?: string;
 }
 
@@ -299,19 +300,31 @@ export async function upsertGuestByPhone(input: UpsertGuestInput): Promise<Guest
   const existing = await findGuestByPhone(phone);
   if (existing) {
     const patch: Record<string, unknown> = {};
-    // Name is guest-owned — let them correct typos. Email/dietary stay
-    // blank-fill-only since hosts often curate those in Notion.
+    // Name and dietary are guest-owned — they overwrite. Email stays
+    // blank-fill-only because hosts often curate it in Notion.
     if (input.name && input.name !== existing.name) {
       patch['Name'] = { title: [{ text: { content: input.name } }] };
     }
     if (input.email && !existing.email) patch['Email'] = { email: input.email };
-    if (input.dietaryNotes && !existing.dietaryNotes) {
-      patch['Dietary Notes'] = { rich_text: [{ text: { content: input.dietaryNotes } }] };
+    if (input.dietaryRestrictions !== undefined) {
+      patch['Dietary Restrictions'] = {
+        multi_select: input.dietaryRestrictions.map(n => ({ name: n })),
+      };
+    }
+    if (input.dietaryNotes !== undefined) {
+      patch['Dietary Notes'] = {
+        rich_text: input.dietaryNotes ? [{ text: { content: input.dietaryNotes } }] : [],
+      };
     }
     if (Object.keys(patch).length > 0) {
       await notionRequest('PATCH', `/v1/pages/${existing.id}`, { properties: patch });
     }
-    return { ...existing, name: input.name || existing.name };
+    return {
+      ...existing,
+      name: input.name || existing.name,
+      dietaryRestrictions: input.dietaryRestrictions ?? existing.dietaryRestrictions,
+      dietaryNotes: input.dietaryNotes ?? existing.dietaryNotes,
+    };
   }
 
   const created = await notionRequest('POST', '/v1/pages', {
@@ -320,6 +333,9 @@ export async function upsertGuestByPhone(input: UpsertGuestInput): Promise<Guest
       Name: { title: [{ text: { content: input.name || phone } }] },
       Phone: { phone_number: phone },
       ...(input.email ? { Email: { email: input.email } } : {}),
+      ...(input.dietaryRestrictions && input.dietaryRestrictions.length > 0
+        ? { 'Dietary Restrictions': { multi_select: input.dietaryRestrictions.map(n => ({ name: n })) } }
+        : {}),
       ...(input.dietaryNotes
         ? { 'Dietary Notes': { rich_text: [{ text: { content: input.dietaryNotes } }] } }
         : {}),
