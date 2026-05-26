@@ -53,5 +53,16 @@ export async function POST(req: Request) {
     source: 'form',
   });
 
-  return NextResponse.json({ ok: true, guestId: guest.id, rsvpId: rsvp.id, phone });
+  return NextResponse.json({
+    ok: true,
+    guestId: guest.id,
+    rsvpId: rsvp.id,
+    phone,
+    saved: {
+      name: guest.name,
+      status: rsvp.status,
+      plusOnes: rsvp.plusOnes,
+      notes: rsvp.notes,
+    },
+  });
 }

@@ -298,9 +298,12 @@ export async function upsertGuestByPhone(input: UpsertGuestInput): Promise<Guest
 
   const existing = await findGuestByPhone(phone);
   if (existing) {
-    // Only patch blank fields — never overwrite host-curated data
     const patch: Record<string, unknown> = {};
-    if (input.name && !existing.name) patch['Name'] = { title: [{ text: { content: input.name } }] };
+    // Name is guest-owned — let them correct typos. Email/dietary stay
+    // blank-fill-only since hosts often curate those in Notion.
+    if (input.name && input.name !== existing.name) {
+      patch['Name'] = { title: [{ text: { content: input.name } }] };
+    }
     if (input.email && !existing.email) patch['Email'] = { email: input.email };
     if (input.dietaryNotes && !existing.dietaryNotes) {
       patch['Dietary Notes'] = { rich_text: [{ text: { content: input.dietaryNotes } }] };
@@ -308,7 +311,7 @@ export async function upsertGuestByPhone(input: UpsertGuestInput): Promise<Guest
     if (Object.keys(patch).length > 0) {
       await notionRequest('PATCH', `/v1/pages/${existing.id}`, { properties: patch });
     }
-    return { ...existing, name: existing.name || input.name };
+    return { ...existing, name: input.name || existing.name };
   }
 
   const created = await notionRequest('POST', '/v1/pages', {

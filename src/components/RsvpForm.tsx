@@ -21,6 +21,7 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [saved, setSaved] = useState<{ name: string; status: string; plusOnes: number; notes: string } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -54,6 +55,7 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
       // Persist phone + name so guest can claim potluck items and not retype
       localStorage.setItem(STORAGE_KEY, data.phone ?? phone.trim());
       localStorage.setItem(NAME_KEY, name.trim());
+      if (data.saved) setSaved(data.saved);
       setDone(true);
       router.refresh();
     } catch (err) {
@@ -67,7 +69,14 @@ export function RsvpForm({ slug, plusOnesMax = 2 }: Props) {
     return (
       <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-6">
         <p className="text-emerald-300 font-medium">RSVP received ✨</p>
-        <p className="mt-1 text-sm text-emerald-200">
+        {saved && (
+          <p className="mt-2 text-sm text-emerald-100">
+            Saved as <span className="font-medium">{saved.name}</span> · {saved.status}
+            {saved.status !== 'No' && saved.plusOnes > 0 && ` · +${saved.plusOnes}`}
+            {saved.notes && ` · "${saved.notes}"`}
+          </p>
+        )}
+        <p className="mt-2 text-sm text-emerald-200">
           You can now claim potluck items below. Need to change your RSVP?{' '}
           <button onClick={() => setDone(false)} className="underline">Edit response</button>.
         </p>
