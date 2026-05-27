@@ -7,13 +7,6 @@ import type { PotluckCategory, PotluckDietaryTag } from '@/lib/schema';
 interface Props {
   slug: string;
   hostSecret: string;
-  inputs: {
-    confirmedCount: number;
-    maybeCount: number;
-    plusOnesConfirmed: number;
-    targetHeadcount: number;
-    currentClaimsByCategory: Record<PotluckCategory, number>;
-  };
 }
 
 interface DraftSuggestion {
@@ -28,7 +21,7 @@ interface DraftSuggestion {
 const CATEGORIES: PotluckCategory[] = ['Appetizer', 'Main', 'Side', 'Dessert', 'Drinks', 'Supplies'];
 const TAGS: PotluckDietaryTag[] = ['Vegetarian', 'Vegan', 'Gluten-Free', 'Nut-Free', 'Dairy-Free'];
 
-export function SmartPotluckPanel({ slug, hostSecret, inputs }: Props) {
+export function SmartPotluckPanel({ slug, hostSecret }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [drafts, setDrafts] = useState<DraftSuggestion[]>([
@@ -107,40 +100,18 @@ export function SmartPotluckPanel({ slug, hostSecret, inputs }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-5">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-lg font-semibold text-purple-200">Smart Potluck</h3>
-        <span className="text-xs text-purple-300/70">Phase 1 · manual stub</span>
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium py-2.5 text-sm"
+        >
+          Generate suggestions
+        </button>
+        <span className="text-[10px] uppercase tracking-wider text-purple-300/70 whitespace-nowrap">
+          Smart Potluck · Phase 1
+        </span>
       </div>
-
-      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-        <Stat label="Target" value={inputs.targetHeadcount} />
-        <Stat label="Confirmed" value={inputs.confirmedCount + inputs.plusOnesConfirmed} sub={`${inputs.confirmedCount} + ${inputs.plusOnesConfirmed} +1`} />
-        <Stat label="Maybe" value={inputs.maybeCount} />
-        <Stat label="Slots filled" value={Object.values(inputs.currentClaimsByCategory).reduce((a, b) => a + b, 0)} />
-      </div>
-
-      <div className="mt-4 space-y-1.5">
-        {CATEGORIES.map(cat => {
-          const claimed = inputs.currentClaimsByCategory[cat] ?? 0;
-          const recommended = recommendedForCategory(cat, inputs.targetHeadcount);
-          return (
-            <div key={cat} className="flex items-center gap-3 text-xs">
-              <span className="w-20 text-slate-300">{cat}</span>
-              <ProgressBar filled={claimed} total={recommended} />
-              <span className="w-12 text-right text-slate-400">{claimed} / {recommended}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={() => setOpen(true)}
-        className="mt-4 w-full rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium py-2.5"
-      >
-        Generate suggestions
-      </button>
-
       <p className="mt-2 text-xs text-purple-300/60">
         V2.0: you enter your own suggestions; we log everything. V2.1 will replace this with Claude API output, scored against your Phase 1 logs.
       </p>
@@ -256,30 +227,3 @@ export function SmartPotluckPanel({ slug, hostSecret, inputs }: Props) {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
-      {sub && <div className="text-xs text-slate-500">{sub}</div>}
-    </div>
-  );
-}
-
-function ProgressBar({ filled, total }: { filled: number; total: number }) {
-  const pct = total > 0 ? Math.min(100, (filled / total) * 100) : 0;
-  return (
-    <div className="flex-1 h-2 bg-slate-800 rounded overflow-hidden">
-      <div
-        className={`h-full ${pct >= 100 ? 'bg-emerald-500' : 'bg-purple-500'}`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
-// Rough heuristic per-category for a 10-person party; scales linearly.
-function recommendedForCategory(cat: PotluckCategory, headcount: number): number {
-  const per10 = { Appetizer: 3, Main: 2, Side: 2, Dessert: 2, Drinks: 3, Supplies: 2 };
-  return Math.max(1, Math.round((per10[cat] * headcount) / 10));
-}

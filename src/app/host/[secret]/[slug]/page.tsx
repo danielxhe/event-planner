@@ -74,11 +74,6 @@ export default async function HostPage({ params }: PageProps) {
     (yes.length + plusOnesConfirmed) + 0.5 * (maybe.length + plusOnesMaybe)
   );
 
-  const claimsByCategory: Record<PotluckCategory, number> = {
-    Appetizer: 0, Main: 0, Side: 0, Dessert: 0, Drinks: 0, Supplies: 0,
-  };
-  for (const p of potluck) claimsByCategory[p.category]++;
-
   const categoryStats = computeCategoryStats(potluck, {
     targetServings: event.targetServings,
     effectiveHeadcount: estimatedHeadcount,
@@ -117,19 +112,6 @@ export default async function HostPage({ params }: PageProps) {
           <StatCard label="No" value={no.length} tone="rose" />
           <StatCard label="Est. headcount" value={estimatedHeadcount} tone="purple" />
         </section>
-
-        {/* Smart Potluck */}
-        <SmartPotluckPanel
-          slug={event.slug}
-          hostSecret={event.hostSecret}
-          inputs={{
-            confirmedCount: yes.length,
-            maybeCount: maybe.length,
-            plusOnesConfirmed,
-            targetHeadcount: event.targetHeadcount ?? 10,
-            currentClaimsByCategory: claimsByCategory,
-          }}
-        />
 
         {/* Category targets — what guests are seeing on the dot board */}
         <section className="rounded-xl bg-slate-900 p-5">
@@ -204,6 +186,10 @@ export default async function HostPage({ params }: PageProps) {
             <span className="rounded bg-purple-500/20 text-purple-300 px-1.5 py-0.5 text-[10px]">host</span>{' '}
             pill.
           </p>
+
+          <div className="mt-5 pt-4 border-t border-slate-800">
+            <SmartPotluckPanel slug={event.slug} hostSecret={event.hostSecret} />
+          </div>
         </section>
 
         {/* Potluck management */}
