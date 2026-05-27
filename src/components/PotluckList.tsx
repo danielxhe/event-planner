@@ -14,10 +14,11 @@ import {
 interface Props {
   items: PotluckItem[];
   guests: Record<string, string>;
-  event: Pick<Event, 'slug' | 'targetHeadcount' | 'targetServings' | 'isSurprise'>;
+  event: Pick<Event, 'slug' | 'targetServings' | 'isSurprise'>;
+  effectiveHeadcount: number | null;
 }
 
-export function PotluckList({ items, guests, event }: Props) {
+export function PotluckList({ items, guests, event, effectiveHeadcount }: Props) {
   const router = useRouter();
   const [phone, setPhone] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -35,7 +36,14 @@ export function PotluckList({ items, guests, event }: Props) {
     setPhone(localStorage.getItem('ep:phone'));
   }, []);
 
-  const stats = useMemo(() => computeCategoryStats(items, event), [items, event]);
+  const stats = useMemo(
+    () =>
+      computeCategoryStats(items, {
+        targetServings: event.targetServings,
+        effectiveHeadcount,
+      }),
+    [items, event.targetServings, effectiveHeadcount],
+  );
   const sorted = useMemo(() => sortStatsByNeed(stats), [stats]);
 
   const mostNeeded = sorted.filter(s => s.status === 'needed').slice(0, 2).map(s => s.label);

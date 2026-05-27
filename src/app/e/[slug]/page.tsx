@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent } from '@/lib/notion';
 import { formatPhoneForDisplay } from '@/lib/phone';
+import { estimatedHeadcountFromRsvps } from '@/lib/categories';
 import { RsvpForm } from '@/components/RsvpForm';
 import { PotluckList } from '@/components/PotluckList';
 
@@ -101,7 +102,12 @@ export default async function EventPage({ params }: PageProps) {
       <section className="px-6 py-8">
         <div className="mx-auto max-w-xl">
           <h2 className="mb-4 text-lg font-semibold">Bring a dish</h2>
-          <PotluckList items={potluck} guests={guestNames} event={event} />
+          <PotluckList
+            items={potluck}
+            guests={guestNames}
+            event={event}
+            effectiveHeadcount={estimatedHeadcountFromRsvps(rsvps, event.targetHeadcount)}
+          />
         </div>
       </section>
 

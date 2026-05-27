@@ -3,7 +3,7 @@
 // thumb, locked V1.1 2026-05-27. Host can override per-event by setting
 // "Target Servings <Category>" on the Events Notion DB.
 
-import type { PotluckCategory, PotluckItem, Event } from './schema';
+import type { PotluckCategory, PotluckItem, Rsvp } from './schema';
 
 // Categories shown with dot-row UI on the guest page.
 // "Supplies" is intentionally excluded, it has no servings ratio.
@@ -81,23 +81,31 @@ export function effectiveServings(item: PotluckItem): number {
   return DEFAULTS_PER_DISH[item.category] ?? 0;
 }
 
-function targetFor(category: PotluckCategory, event: Pick<Event, 'targetHeadcount' | 'targetServings'>): number | null {
+export interface CategoryStatsInput {
+  targetServings?: Partial<Record<PotluckCategory, number | null>>;
+  // Headcount the target ratio multiplies against. Callers should pass
+  // estimatedHeadcountFromRsvps(...) so the dot board tracks live RSVPs;
+  // null disables the headcount-derived fallback.
+  effectiveHeadcount: number | null;
+}
+
+function targetFor(category: PotluckCategory, input: CategoryStatsInput): number | null {
   if (category === 'Supplies') return null;
-  const override = event.targetServings?.[category];
+  const override = input.targetServings?.[category];
   if (override != null) return override;
   const ratio = RATIOS[category as keyof typeof RATIOS];
-  if (event.targetHeadcount != null && ratio != null) {
-    return Math.round(event.targetHeadcount * ratio);
+  if (input.effectiveHeadcount != null && input.effectiveHeadcount > 0 && ratio != null) {
+    return Math.round(input.effectiveHeadcount * ratio);
   }
   return null;
 }
 
 export function computeCategoryStats(
   items: PotluckItem[],
-  event: Pick<Event, 'targetHeadcount' | 'targetServings'>,
+  input: CategoryStatsInput,
 ): CategoryStat[] {
   return DOT_CATEGORIES.map(cat => {
-    const target = targetFor(cat, event);
+    const target = targetFor(cat, input);
     const claimed = items
       .filter(i => i.category === cat)
       .reduce((sum, i) => sum + effectiveServings(i), 0);
@@ -128,6 +136,37 @@ export function computeCategoryStats(
       status,
     };
   });
+}
+
+// Live estimated headcount: confirmed Yes carry full weight, plus-ones too,
+// Maybe weighted 0.5. If too few people have responded for this to be a useful
+// signal (< 2), fall back to the host's planning Target Headcount, then null.
+const MIN_RSVPS_TO_TRUST_ESTIMATE = 2;
+export function estimatedHeadcountFromRsvps(
+  rsvps: Pick<Rsvp, 'status' | 'plusOnes'>[],
+  fallbackTargetHeadcount: number | null,
+): number | null {
+  let yesCount = 0;
+  let maybeCount = 0;
+  let plusYes = 0;
+  let plusMaybe = 0;
+  for (const r of rsvps) {
+    if (r.status === 'Yes') {
+      yesCount += 1;
+      plusYes += r.plusOnes ?? 0;
+    } else if (r.status === 'Maybe') {
+      maybeCount += 1;
+      plusMaybe += r.plusOnes ?? 0;
+    }
+  }
+  const responded = yesCount + maybeCount;
+  if (responded >= MIN_RSVPS_TO_TRUST_ESTIMATE) {
+    return (yesCount + plusYes) + 0.5 * (maybeCount + plusMaybe);
+  }
+  if (fallbackTargetHeadcount != null && fallbackTargetHeadcount > 0) {
+    return fallbackTargetHeadcount;
+  }
+  return null;
 }
 
 // Sort stats so the largest gap floats to the top, then unset, then covered.

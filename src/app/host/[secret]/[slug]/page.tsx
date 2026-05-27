@@ -79,7 +79,10 @@ export default async function HostPage({ params }: PageProps) {
   };
   for (const p of potluck) claimsByCategory[p.category]++;
 
-  const categoryStats = computeCategoryStats(potluck, event);
+  const categoryStats = computeCategoryStats(potluck, {
+    targetServings: event.targetServings,
+    effectiveHeadcount: estimatedHeadcount,
+  });
 
   // guestId → name (for displaying who claimed what)
   const guestNames: Record<string, string> = {};
@@ -192,10 +195,12 @@ export default async function HostPage({ params }: PageProps) {
             </table>
           </div>
           <p className="mt-3 text-xs text-slate-500 leading-relaxed">
-            Targets fall back to <span className="text-slate-300">Target Headcount × ratio</span>{' '}
-            (Appetizer 2.5, Main 1.0, Side 1.0, Dessert 0.75, Drinks 2.0). To override per category,
-            set <code className="text-slate-300">Target Servings {'<Category>'}</code> on the Events
-            DB in Notion. Overrides are flagged with a{' '}
+            Targets scale to <span className="text-slate-300">estimated headcount × ratio</span>{' '}
+            (Appetizer 2.5, Main 1.0, Side 1.0, Dessert 0.75, Drinks 2.0). Estimated headcount is{' '}
+            <span className="text-slate-300">{estimatedHeadcount}</span>: Yes plus plus-ones plus
+            half of Maybes. Below 2 responses it falls back to Target Headcount. To override per
+            category, set <code className="text-slate-300">Target Servings {'<Category>'}</code> on
+            the Events DB in Notion. Overrides are flagged with a{' '}
             <span className="rounded bg-purple-500/20 text-purple-300 px-1.5 py-0.5 text-[10px]">host</span>{' '}
             pill.
           </p>
