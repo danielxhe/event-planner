@@ -6,6 +6,7 @@ import { HostItemAdder } from '@/components/HostItemAdder';
 import { PotluckDeleteButton } from '@/components/PotluckDeleteButton';
 import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
 import type { PotluckCategory } from '@/lib/schema';
+import { computeCategoryStats, CATEGORY_LABEL } from '@/lib/categories';
 
 interface PageProps {
   params: Promise<{ secret: string; slug: string }>;
@@ -78,6 +79,8 @@ export default async function HostPage({ params }: PageProps) {
   };
   for (const p of potluck) claimsByCategory[p.category]++;
 
+  const categoryStats = computeCategoryStats(potluck, event);
+
   // guestId → name (for displaying who claimed what)
   const guestNames: Record<string, string> = {};
   for (const r of rsvps) guestNames[r.guestId] = r.title;
@@ -124,6 +127,79 @@ export default async function HostPage({ params }: PageProps) {
             currentClaimsByCategory: claimsByCategory,
           }}
         />
+
+        {/* Category targets — what guests are seeing on the dot board */}
+        <section className="rounded-xl bg-slate-900 p-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-lg font-semibold">Category targets</h2>
+            <span className="text-xs text-slate-500">
+              guests see this as a dot board
+            </span>
+          </div>
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm min-w-[28rem]">
+              <thead className="text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th className="text-left py-2 px-2 font-medium">Category</th>
+                  <th className="text-left py-2 px-2 font-medium">Target</th>
+                  <th className="text-left py-2 px-2 font-medium">Claimed</th>
+                  <th className="text-left py-2 px-2 font-medium">Gap</th>
+                  <th className="text-left py-2 px-2 font-medium">Coverage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryStats.map(stat => {
+                  const override = event.targetServings?.[stat.category];
+                  const isOverride = override != null;
+                  let statusCls = 'text-slate-400';
+                  let statusText = '—';
+                  if (stat.status === 'covered') {
+                    statusCls = 'text-emerald-300';
+                    statusText = 'covered';
+                  } else if (stat.status === 'needed') {
+                    statusCls = 'text-amber-300';
+                    statusText = `needs ${stat.gap}`;
+                  }
+                  return (
+                    <tr key={stat.category} className="border-b border-slate-800/60">
+                      <td className="py-2 px-2 font-medium">
+                        {CATEGORY_LABEL[stat.category]}
+                      </td>
+                      <td className="py-2 px-2 text-slate-300">
+                        {stat.target ?? '—'}
+                        {isOverride && (
+                          <span className="ml-1.5 text-[10px] rounded bg-purple-500/20 text-purple-300 px-1.5 py-0.5">
+                            host
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-2 text-slate-300">{stat.claimed}</td>
+                      <td className={`py-2 px-2 ${statusCls}`}>{statusText}</td>
+                      <td className="py-2 px-2 font-mono tracking-widest leading-none" aria-hidden>
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <span
+                            key={i}
+                            className={i < stat.dotsFilled ? 'text-emerald-400' : 'text-slate-600'}
+                          >
+                            ●
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-slate-500 leading-relaxed">
+            Targets fall back to <span className="text-slate-300">Target Headcount × ratio</span>{' '}
+            (Appetizer 2.5, Main 1.0, Side 1.0, Dessert 0.75, Drinks 2.0). To override per category,
+            set <code className="text-slate-300">Target Servings {'<Category>'}</code> on the Events
+            DB in Notion. Overrides are flagged with a{' '}
+            <span className="rounded bg-purple-500/20 text-purple-300 px-1.5 py-0.5 text-[10px]">host</span>{' '}
+            pill.
+          </p>
+        </section>
 
         {/* Potluck management */}
         <section className="rounded-xl bg-slate-900 p-5">

@@ -197,12 +197,23 @@ export function PotluckList({ items, guests, event }: Props) {
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {renderDots(stat.dotsFilled)}
                   <span className={`text-xs w-16 text-right ${status.cls}`}>{status.text}</span>
-                  <span className="text-slate-500 text-xs">{isOpen ? '▲' : '▼'}</span>
+                  <span
+                    className={`text-slate-500 text-xs transition-transform duration-300 ${
+                      isOpen ? 'rotate-180' : 'rotate-0'
+                    }`}
+                  >
+                    ▼
+                  </span>
                 </div>
               </button>
 
-              {isOpen && (
-                <div className="px-4 pb-4 space-y-3">
+              <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                  isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="px-4 pb-4 space-y-3">
                   {cs.length === 0 ? (
                     <p className="text-sm text-slate-500">No dishes here yet. Be the first.</p>
                   ) : (
@@ -332,8 +343,9 @@ export function PotluckList({ items, guests, event }: Props) {
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
-              )}
+              </div>
             </li>
           );
         })}
