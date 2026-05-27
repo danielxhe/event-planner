@@ -34,6 +34,9 @@ export interface Event {
   hostSecret: string;
   targetHeadcount: number | null;
   cancelled: boolean;
+  // Per-category override of the headcount-derived servings target.
+  // null entries fall back to targetHeadcount × ratio at read time.
+  targetServings: Partial<Record<PotluckCategory, number | null>>;
 }
 
 export interface Guest {

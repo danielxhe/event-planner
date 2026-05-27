@@ -122,6 +122,13 @@ export function pageToEvent(p: Page): Event {
     hostSecret: getRichText(p, 'Host Secret'),
     targetHeadcount: getNumber(p, 'Target Headcount'),
     cancelled: getCheckbox(p, 'Cancelled'),
+    targetServings: {
+      Appetizer: getNumber(p, 'Target Servings Appetizer'),
+      Main: getNumber(p, 'Target Servings Main'),
+      Side: getNumber(p, 'Target Servings Side'),
+      Dessert: getNumber(p, 'Target Servings Dessert'),
+      Drinks: getNumber(p, 'Target Servings Drinks'),
+    },
   };
 }
 

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent } from '@/lib/notion';
 import { formatPhoneForDisplay } from '@/lib/phone';
 import { RsvpForm } from '@/components/RsvpForm';
-import { PotluckGrid } from '@/components/PotluckGrid';
+import { PotluckList } from '@/components/PotluckList';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -100,8 +100,8 @@ export default async function EventPage({ params }: PageProps) {
       {/* Potluck */}
       <section className="px-6 py-8">
         <div className="mx-auto max-w-xl">
-          <h2 className="mb-4 text-lg font-semibold">Potluck</h2>
-          <PotluckGrid items={potluck} guests={guestNames} />
+          <h2 className="mb-4 text-lg font-semibold">Bring a dish</h2>
+          <PotluckList items={potluck} guests={guestNames} event={event} />
         </div>
       </section>
 
