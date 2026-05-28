@@ -7,10 +7,38 @@ import { PotluckDeleteButton } from '@/components/PotluckDeleteButton';
 import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
 import { CategoryEditor } from '@/components/CategoryEditor';
 import { EventDetailsEditor } from '@/components/EventDetailsEditor';
+import { GuestLinkBar } from '@/components/GuestLinkBar';
 import { computeCategoryStats } from '@/lib/categories';
 
 interface PageProps {
   params: Promise<{ secret: string; slug: string }>;
+}
+
+// Maps a guest dietary restriction to the dish tag that satisfies it.
+// Restrictions with no entry (Halal, Kosher, Other) can't be auto-verified.
+const DIETARY_TAG_FOR: Record<string, string> = {
+  Vegetarian: 'Vegetarian',
+  Vegan: 'Vegan',
+  'Gluten-Free': 'Gluten-Free',
+  'Dairy-Free': 'Dairy-Free',
+  'Nut Allergy': 'Nut-Free',
+};
+
+function dishSatisfies(tags: string[], restriction: string): boolean {
+  switch (restriction) {
+    case 'Vegetarian':
+      return tags.includes('Vegetarian') || tags.includes('Vegan');
+    case 'Vegan':
+      return tags.includes('Vegan');
+    case 'Gluten-Free':
+      return tags.includes('Gluten-Free');
+    case 'Dairy-Free':
+      return tags.includes('Dairy-Free');
+    case 'Nut Allergy':
+      return tags.includes('Nut-Free');
+    default:
+      return false;
+  }
 }
 
 export default async function HostPage({ params }: PageProps) {
@@ -62,6 +90,25 @@ export default async function HostPage({ params }: PageProps) {
     for (const d of g?.dietaryRestrictions ?? []) dietaryCounts[d] = (dietaryCounts[d] ?? 0) + 1;
   }
   const dietarySummary = Object.entries(dietaryCounts).sort((a, b) => b[1] - a[1]);
+
+  // Dietary conflict check: does at least one CLAIMED dish satisfy each
+  // restriction the attendees have? Restrictions with no tag mapping can't be
+  // auto-verified and are surfaced for manual confirmation.
+  const claimedItems = potluck.filter(p => !!p.claimedByGuestId);
+  const dietaryFlags = dietarySummary.map(([name, count]) => {
+    if (!(name in DIETARY_TAG_FOR)) {
+      return { name, count, status: 'manual' as const, tag: null as string | null };
+    }
+    const covered = claimedItems.some(i => dishSatisfies(i.dietaryTags, name));
+    return {
+      name,
+      count,
+      status: (covered ? 'covered' : 'gap') as 'covered' | 'gap',
+      tag: DIETARY_TAG_FOR[name],
+    };
+  });
+  const dietaryGaps = dietaryFlags.filter(f => f.status === 'gap');
+  const dietaryManual = dietaryFlags.filter(f => f.status === 'manual');
 
   const eventDateStr = event.date
     ? new Date(event.date).toLocaleString('en-US', {
@@ -131,9 +178,7 @@ export default async function HostPage({ params }: PageProps) {
               <span className="ml-2 rounded bg-amber-500/20 text-amber-300 px-2 py-0.5 text-xs">Unpublished</span>
             )}
           </div>
-          <div className="mt-2 text-xs text-slate-500">
-            Guest link: <code className="text-slate-300">/e/{event.slug}</code>
-          </div>
+          <GuestLinkBar url={guestLink} />
           <div className="mt-3">
             <EventDetailsEditor
               slug={event.slug}
@@ -233,6 +278,37 @@ export default async function HostPage({ params }: PageProps) {
             headcount (currently <span className="text-slate-300">{estimatedHeadcount}</span>: Yes plus
             plus-ones plus half of Maybes). Use &ldquo;Edit categories&rdquo; to change them.
           </p>
+
+          {dietaryFlags.length > 0 && (
+            <div
+              className={`mt-4 rounded-lg border px-3 py-2.5 ${
+                dietaryGaps.length > 0
+                  ? 'border-amber-500/30 bg-amber-500/10'
+                  : 'border-emerald-500/30 bg-emerald-500/10'
+              }`}
+            >
+              <div className="text-sm font-medium text-slate-100 mb-1">Dietary coverage</div>
+              {dietaryGaps.length === 0 && dietaryManual.length === 0 ? (
+                <p className="text-xs text-emerald-200">
+                  Every dietary need has a claimed dish tagged for it.
+                </p>
+              ) : (
+                <ul className="space-y-1 text-xs">
+                  {dietaryGaps.map(f => (
+                    <li key={f.name} className="text-amber-200">
+                      {f.count} {f.count === 1 ? 'guest is' : 'guests are'} {f.name}, but no claimed
+                      dish is tagged {f.tag}.
+                    </li>
+                  ))}
+                  {dietaryManual.map(f => (
+                    <li key={f.name} className="text-slate-300">
+                      {f.count} {f.name}: no automatic check. Confirm a suitable dish yourself.
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div className="mt-5 pt-4 border-t border-slate-800">
             <SmartPotluckPanel slug={event.slug} hostSecret={event.hostSecret} categories={configuredNames} />
