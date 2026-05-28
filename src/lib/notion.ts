@@ -10,6 +10,7 @@ interface QueryResponse {
   has_more: boolean;
 }
 import { normalizePhone } from './phone';
+import { DEFAULT_SPREAD_CATEGORIES } from './categories';
 import type {
   Event,
   Guest,
@@ -18,12 +19,35 @@ import type {
   SuggestionRun,
   RsvpStatus,
   PotluckCategory,
+  CategoryConfig,
   DietaryRestriction,
   PotluckDietaryTag,
   PotluckSource,
   RsvpSource,
   SuggestionMode,
 } from './schema';
+
+function parseSpreadCategories(raw: string): CategoryConfig[] {
+  if (!raw || !raw.trim()) return DEFAULT_SPREAD_CATEGORIES;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_SPREAD_CATEGORIES;
+    const cleaned = parsed
+      .filter((c): c is { id?: unknown; name: string; target?: unknown; perGuest?: unknown } =>
+        !!c && typeof (c as { name?: unknown }).name === 'string')
+      .map(c => ({
+        id: typeof c.id === 'string' && c.id ? c.id : `cat-${Math.random().toString(36).slice(2, 10)}`,
+        name: String(c.name).slice(0, 40),
+        target: typeof c.target === 'number' ? c.target : null,
+        perGuest: typeof c.perGuest === 'number' ? c.perGuest : null,
+      }));
+    return cleaned.length > 0 ? cleaned : DEFAULT_SPREAD_CATEGORIES;
+  } catch {
+    return DEFAULT_SPREAD_CATEGORIES;
+  }
+}
+
+const textProp = (s: string) => (s ? [{ text: { content: s } }] : []);
 
 if (!process.env.NOTION_TOKEN) {
   // Don't throw at module load — Next.js may eval this during build.
@@ -121,14 +145,10 @@ export function pageToEvent(p: Page): Event {
     isPublished: getCheckbox(p, 'Is Published'),
     hostSecret: getRichText(p, 'Host Secret'),
     targetHeadcount: getNumber(p, 'Target Headcount'),
+    plusOnesMax: getNumber(p, 'Plus-Ones Max'),
+    hideClaimerNames: getCheckbox(p, 'Hide Claimer Names'),
     cancelled: getCheckbox(p, 'Cancelled'),
-    targetServings: {
-      Appetizer: getNumber(p, 'Target Servings Appetizer'),
-      Main: getNumber(p, 'Target Servings Main'),
-      Side: getNumber(p, 'Target Servings Side'),
-      Dessert: getNumber(p, 'Target Servings Dessert'),
-      Drinks: getNumber(p, 'Target Servings Drinks'),
-    },
+    spreadCategories: parseSpreadCategories(getRichText(p, 'Spread Categories')),
   };
 }
 
@@ -165,6 +185,7 @@ export function pageToPotluck(p: Page): PotluckItem {
     eventId: getRelationIds(p, 'Event')[0] ?? '',
     category: getSelect<PotluckCategory>(p, 'Category', 'Main'),
     serves: getNumber(p, 'Serves'),
+    hostEstimate: getNumber(p, 'Host Estimate'),
     dietaryTags: getMultiSelect<PotluckDietaryTag>(p, 'Dietary Tags'),
     claimedByGuestId: getRelationIds(p, 'Claimed By')[0] ?? null,
     claimedAt: getDate(p, 'Claimed At'),
@@ -405,18 +426,24 @@ export async function upsertRsvp(input: UpsertRsvpInput): Promise<Rsvp> {
   return pageToRsvp(created);
 }
 
-export async function claimPotluckAtomic(itemId: string, guestId: string): Promise<PotluckItem> {
+export async function claimPotluckAtomic(
+  itemId: string,
+  guestId: string,
+  servings?: number | null,
+): Promise<PotluckItem> {
   const current = await getPotluckItem(itemId);
   if (!current) throw new Error('Item not found');
   if (current.claimedByGuestId && current.claimedByGuestId !== guestId) {
     throw new Error('Already claimed by someone else');
   }
-  const updated = await notionRequest('PATCH', `/v1/pages/${itemId}`, {
-    properties: {
-      'Claimed By': { relation: [{ id: guestId }] },
-      'Claimed At': { date: { start: new Date().toISOString() } },
-    },
-  });
+  const properties: Record<string, unknown> = {
+    'Claimed By': { relation: [{ id: guestId }] },
+    'Claimed At': { date: { start: new Date().toISOString() } },
+  };
+  // The claiming guest declares how many servings they're bringing; that's what
+  // counts toward coverage (the host's estimate never does).
+  if (servings != null) properties['Serves'] = { number: servings };
+  const updated = await notionRequest('PATCH', `/v1/pages/${itemId}`, { properties });
   return pageToPotluck(updated);
 }
 
@@ -435,11 +462,76 @@ export async function unclaimPotluck(itemId: string, guestId: string): Promise<P
   return pageToPotluck(updated);
 }
 
+export interface UpdatePotluckInput {
+  itemId: string;
+  item?: string;
+  category?: string;
+  serves?: number | null;
+  dietaryTags?: string[];
+}
+
+export async function updatePotluckItem(input: UpdatePotluckInput): Promise<PotluckItem> {
+  const props: Record<string, unknown> = {};
+  if (input.item != null) props['Item'] = { title: [{ text: { content: input.item } }] };
+  if (input.category != null) props['Category'] = { select: { name: input.category } };
+  if (input.serves !== undefined) props['Serves'] = { number: input.serves };
+  if (input.dietaryTags != null) {
+    props['Dietary Tags'] = { multi_select: input.dietaryTags.map(n => ({ name: n })) };
+  }
+  const updated = await notionRequest('PATCH', `/v1/pages/${input.itemId}`, { properties: props });
+  return pageToPotluck(updated);
+}
+
+export interface UpdateEventInput {
+  eventId: string;
+  name?: string;
+  date?: string | null;
+  venueName?: string;
+  venueAddress?: string;
+  venueMapUrl?: string | null;
+  hostPhone?: string | null;
+  dressCode?: string;
+  description?: string;
+  targetHeadcount?: number | null;
+  plusOnesMax?: number | null;
+  isPublished?: boolean;
+  isSurprise?: boolean;
+  hideClaimerNames?: boolean;
+}
+
+export async function updateEvent(input: UpdateEventInput): Promise<Event> {
+  const props: Record<string, unknown> = {};
+  if (input.name != null) props['Name'] = { title: [{ text: { content: input.name } }] };
+  if (input.date !== undefined) props['Date'] = input.date ? { date: { start: input.date } } : { date: null };
+  if (input.venueName != null) props['Venue Name'] = { rich_text: textProp(input.venueName) };
+  if (input.venueAddress != null) props['Venue Address'] = { rich_text: textProp(input.venueAddress) };
+  if (input.venueMapUrl !== undefined) props['Venue Map URL'] = { url: input.venueMapUrl || null };
+  if (input.hostPhone !== undefined) props['Host Phone'] = { phone_number: input.hostPhone || null };
+  if (input.dressCode != null) props['Dress Code'] = { rich_text: textProp(input.dressCode) };
+  if (input.description != null) props['Description'] = { rich_text: textProp(input.description) };
+  if (input.targetHeadcount !== undefined) props['Target Headcount'] = { number: input.targetHeadcount };
+  if (input.plusOnesMax !== undefined) props['Plus-Ones Max'] = { number: input.plusOnesMax };
+  if (input.isPublished != null) props['Is Published'] = { checkbox: input.isPublished };
+  if (input.isSurprise != null) props['Is Surprise'] = { checkbox: input.isSurprise };
+  if (input.hideClaimerNames != null) props['Hide Claimer Names'] = { checkbox: input.hideClaimerNames };
+  const updated = await notionRequest('PATCH', `/v1/pages/${input.eventId}`, { properties: props });
+  return pageToEvent(updated);
+}
+
+export async function updateEventCategories(eventId: string, categories: CategoryConfig[]): Promise<Event> {
+  const json = JSON.stringify(categories);
+  const updated = await notionRequest('PATCH', `/v1/pages/${eventId}`, {
+    properties: { 'Spread Categories': { rich_text: [{ text: { content: json.slice(0, 2000) } }] } },
+  });
+  return pageToEvent(updated);
+}
+
 export interface CreatePotluckInput {
   eventId: string;
   item: string;
-  category: 'Appetizer' | 'Main' | 'Side' | 'Dessert' | 'Drinks' | 'Supplies';
-  serves?: number;
+  category: string;
+  serves?: number;            // guest-declared (guest_added flow)
+  hostEstimate?: number;      // host/AI planning estimate (host_added, ai_suggested)
   dietaryTags?: string[];
   source: 'host_added' | 'guest_added' | 'ai_suggested';
   notes?: string;
@@ -454,6 +546,7 @@ export async function createPotluckItem(input: CreatePotluckInput): Promise<Potl
       Category: { select: { name: input.category } },
       Source: { select: { name: input.source } },
       ...(input.serves != null ? { Serves: { number: input.serves } } : {}),
+      ...(input.hostEstimate != null ? { 'Host Estimate': { number: input.hostEstimate } } : {}),
       ...(input.dietaryTags && input.dietaryTags.length > 0
         ? { 'Dietary Tags': { multi_select: input.dietaryTags.map(n => ({ name: n })) } }
         : {}),

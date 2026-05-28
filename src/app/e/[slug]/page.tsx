@@ -94,14 +94,14 @@ export default async function EventPage({ params }: PageProps) {
       <section className="px-6 py-8">
         <div className="mx-auto max-w-xl">
           <h2 className="mb-4 text-lg font-semibold">Are you coming?</h2>
-          <RsvpForm slug={event.slug} plusOnesMax={2} targetHeadcount={event.targetHeadcount} />
+          <RsvpForm slug={event.slug} plusOnesMax={event.plusOnesMax ?? 2} targetHeadcount={event.targetHeadcount} />
         </div>
       </section>
 
       {/* Potluck */}
       <section className="px-6 py-8">
         <div className="mx-auto max-w-xl">
-          <h2 className="mb-4 text-lg font-semibold">Bring a dish</h2>
+          <h2 className="mb-4 text-lg font-semibold">What everyone&apos;s bringing</h2>
           <PotluckList
             items={potluck}
             guests={guestNames}

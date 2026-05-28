@@ -5,14 +5,13 @@ import { SmartPotluckPanel } from '@/components/SmartPotluckPanel';
 import { HostItemAdder } from '@/components/HostItemAdder';
 import { PotluckDeleteButton } from '@/components/PotluckDeleteButton';
 import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
-import type { PotluckCategory } from '@/lib/schema';
-import { computeCategoryStats, CATEGORY_LABEL } from '@/lib/categories';
+import { CategoryEditor } from '@/components/CategoryEditor';
+import { EventDetailsEditor } from '@/components/EventDetailsEditor';
+import { computeCategoryStats } from '@/lib/categories';
 
 interface PageProps {
   params: Promise<{ secret: string; slug: string }>;
 }
-
-const CATEGORY_ORDER: PotluckCategory[] = ['Appetizer', 'Main', 'Side', 'Dessert', 'Drinks', 'Supplies'];
 
 export default async function HostPage({ params }: PageProps) {
   const { secret, slug } = await params;
@@ -39,10 +38,11 @@ export default async function HostPage({ params }: PageProps) {
   const maybe = rsvps.filter(r => r.status === 'Maybe');
   const no = rsvps.filter(r => r.status === 'No');
 
-  // Pull phones for Yes/Maybe so the reminder panel can text them.
-  const reminderRsvps = [...yes, ...maybe];
-  const guests = await listGuestsByIds(reminderRsvps.map(r => r.guestId));
+  // Pull every responder's guest record so we can show dietary info and text people.
+  const guests = await listGuestsByIds([...new Set(rsvps.map(r => r.guestId))]);
   const guestById = new Map(guests.map(g => [g.id, g]));
+
+  const reminderRsvps = [...yes, ...maybe];
   const recipients: Recipient[] = reminderRsvps
     .map(r => {
       const g = guestById.get(r.guestId);
@@ -54,6 +54,14 @@ export default async function HostPage({ params }: PageProps) {
       };
     })
     .filter((r): r is Recipient => r !== null);
+
+  // Dietary summary across everyone coming (Yes + Maybe).
+  const dietaryCounts: Record<string, number> = {};
+  for (const r of [...yes, ...maybe]) {
+    const g = guestById.get(r.guestId);
+    for (const d of g?.dietaryRestrictions ?? []) dietaryCounts[d] = (dietaryCounts[d] ?? 0) + 1;
+  }
+  const dietarySummary = Object.entries(dietaryCounts).sort((a, b) => b[1] - a[1]);
 
   const eventDateStr = event.date
     ? new Date(event.date).toLocaleString('en-US', {
@@ -74,10 +82,34 @@ export default async function HostPage({ params }: PageProps) {
     (yes.length + plusOnesConfirmed) + 0.5 * (maybe.length + plusOnesMaybe)
   );
 
-  const categoryStats = computeCategoryStats(potluck, {
-    targetServings: event.targetServings,
-    effectiveHeadcount: estimatedHeadcount,
-  });
+  const categoryStats = computeCategoryStats(potluck, event.spreadCategories, estimatedHeadcount);
+
+  // Group spread items by the event's configured category order, then append
+  // any leftover categories that have items but aren't in the config so
+  // nothing silently disappears.
+  const configuredNames = event.spreadCategories.map(c => c.name);
+  const leftoverNames = [...new Set(potluck.map(p => p.category))].filter(
+    n => !configuredNames.includes(n)
+  );
+  const categoryOrder = [...configuredNames, ...leftoverNames];
+
+  // Nudge: guests who said Yes but haven't claimed anything yet.
+  const claimedGuestIds = new Set(
+    potluck.map(p => p.claimedByGuestId).filter((x): x is string => !!x)
+  );
+  const nudgeRecipients: Recipient[] = yes
+    .filter(r => !claimedGuestIds.has(r.guestId))
+    .map((r): Recipient | null => {
+      const g = guestById.get(r.guestId);
+      if (!g?.phone) return null;
+      return { name: g.name || r.title || g.phone, phone: g.phone, status: 'Yes' };
+    })
+    .filter((r): r is Recipient => r !== null);
+  const gapCategories = categoryStats.filter(s => s.status === 'needed').map(s => s.name);
+  const guestLink = `${process.env.NEXT_PUBLIC_APP_BASE_URL ?? ''}/e/${event.slug}`;
+  const nudgeMessage =
+    `Hey! For ${event.name} we still need ${gapCategories.length ? gapCategories.join(', ') : 'a few things'}. ` +
+    `Mind grabbing something from the list? ${guestLink}`;
 
   // guestId → name (for displaying who claimed what)
   const guestNames: Record<string, string> = {};
@@ -102,6 +134,27 @@ export default async function HostPage({ params }: PageProps) {
           <div className="mt-2 text-xs text-slate-500">
             Guest link: <code className="text-slate-300">/e/{event.slug}</code>
           </div>
+          <div className="mt-3">
+            <EventDetailsEditor
+              slug={event.slug}
+              hostSecret={event.hostSecret}
+              event={{
+                name: event.name,
+                date: event.date,
+                venueName: event.venueName,
+                venueAddress: event.venueAddress,
+                venueMapUrl: event.venueMapUrl,
+                hostPhone: event.hostPhone,
+                dressCode: event.dressCode,
+                description: event.description,
+                targetHeadcount: event.targetHeadcount,
+                plusOnesMax: event.plusOnesMax,
+                isPublished: event.isPublished,
+                isSurprise: event.isSurprise,
+                hideClaimerNames: event.hideClaimerNames,
+              }}
+            />
+          </div>
         </header>
 
         {/* Headcount summary */}
@@ -115,11 +168,14 @@ export default async function HostPage({ params }: PageProps) {
 
         {/* Category targets — what guests are seeing on the dot board */}
         <section className="rounded-xl bg-slate-900 p-5">
-          <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-baseline justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold">Category targets</h2>
-            <span className="text-xs text-slate-500">
-              guests see this as a dot board
-            </span>
+            <CategoryEditor
+              slug={event.slug}
+              hostSecret={event.hostSecret}
+              categories={event.spreadCategories}
+              estimatedHeadcount={estimatedHeadcount}
+            />
           </div>
           <div className="overflow-x-auto -mx-2">
             <table className="w-full text-sm min-w-[28rem]">
@@ -134,8 +190,6 @@ export default async function HostPage({ params }: PageProps) {
               </thead>
               <tbody>
                 {categoryStats.map(stat => {
-                  const override = event.targetServings?.[stat.category];
-                  const isOverride = override != null;
                   let statusCls = 'text-slate-400';
                   let statusText = '—';
                   if (stat.status === 'covered') {
@@ -144,31 +198,28 @@ export default async function HostPage({ params }: PageProps) {
                   } else if (stat.status === 'needed') {
                     statusCls = 'text-amber-300';
                     statusText = `needs ${stat.gap}`;
+                  } else {
+                    statusText = 'list';
                   }
                   return (
-                    <tr key={stat.category} className="border-b border-slate-800/60">
-                      <td className="py-2 px-2 font-medium">
-                        {CATEGORY_LABEL[stat.category]}
-                      </td>
+                    <tr key={stat.name} className="border-b border-slate-800/60">
+                      <td className="py-2 px-2 font-medium">{stat.name}</td>
+                      <td className="py-2 px-2 text-slate-300">{stat.target ?? '—'}</td>
                       <td className="py-2 px-2 text-slate-300">
-                        {stat.target ?? '—'}
-                        {isOverride && (
-                          <span className="ml-1.5 text-[10px] rounded bg-purple-500/20 text-purple-300 px-1.5 py-0.5">
-                            host
-                          </span>
-                        )}
+                        {stat.tracksServings ? stat.claimed : '—'}
                       </td>
-                      <td className="py-2 px-2 text-slate-300">{stat.claimed}</td>
                       <td className={`py-2 px-2 ${statusCls}`}>{statusText}</td>
                       <td className="py-2 px-2 font-mono tracking-widest leading-none" aria-hidden>
-                        {Array.from({ length: 5 }, (_, i) => (
-                          <span
-                            key={i}
-                            className={i < stat.dotsFilled ? 'text-emerald-400' : 'text-slate-600'}
-                          >
-                            ●
-                          </span>
-                        ))}
+                        {stat.tracksServings
+                          ? Array.from({ length: 5 }, (_, i) => (
+                              <span
+                                key={i}
+                                className={i < stat.dotsFilled ? 'text-emerald-400' : 'text-slate-600'}
+                              >
+                                ●
+                              </span>
+                            ))
+                          : <span className="text-slate-600">—</span>}
                       </td>
                     </tr>
                   );
@@ -177,34 +228,30 @@ export default async function HostPage({ params }: PageProps) {
             </table>
           </div>
           <p className="mt-3 text-xs text-slate-500 leading-relaxed">
-            Targets scale to <span className="text-slate-300">estimated headcount × ratio</span>{' '}
-            (Appetizer 2.5, Main 1.0, Side 1.0, Dessert 0.75, Drinks 2.0). Estimated headcount is{' '}
-            <span className="text-slate-300">{estimatedHeadcount}</span>: Yes plus plus-ones plus
-            half of Maybes. Below 2 responses it falls back to Target Headcount. To override per
-            category, set <code className="text-slate-300">Target Servings {'<Category>'}</code> on
-            the Events DB in Notion. Overrides are flagged with a{' '}
-            <span className="rounded bg-purple-500/20 text-purple-300 px-1.5 py-0.5 text-[10px]">host</span>{' '}
-            pill.
+            Categories with a target show coverage dots that fill as guests claim items; a category
+            with no target (like Activities) is just a sign-up list. Auto targets scale to estimated
+            headcount (currently <span className="text-slate-300">{estimatedHeadcount}</span>: Yes plus
+            plus-ones plus half of Maybes). Use &ldquo;Edit categories&rdquo; to change them.
           </p>
 
           <div className="mt-5 pt-4 border-t border-slate-800">
-            <SmartPotluckPanel slug={event.slug} hostSecret={event.hostSecret} />
+            <SmartPotluckPanel slug={event.slug} hostSecret={event.hostSecret} categories={configuredNames} />
           </div>
         </section>
 
         {/* Potluck management */}
         <section className="rounded-xl bg-slate-900 p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-lg font-semibold">Potluck items · {potluck.length}</h2>
+            <h2 className="text-lg font-semibold">The Spread · {potluck.length}</h2>
           </div>
           <div className="mb-4">
-            <HostItemAdder slug={event.slug} hostSecret={event.hostSecret} />
+            <HostItemAdder slug={event.slug} hostSecret={event.hostSecret} categories={configuredNames} />
           </div>
           {potluck.length === 0 ? (
             <p className="text-sm text-slate-400">No items yet. Add one above or use Smart Potluck.</p>
           ) : (
             <div className="space-y-4">
-              {CATEGORY_ORDER.map(cat => {
+              {categoryOrder.map(cat => {
                 const items = potluck.filter(p => p.category === cat);
                 if (items.length === 0) return null;
                 return (
@@ -230,6 +277,16 @@ export default async function HostPage({ params }: PageProps) {
                             ))}
                           </div>
                           <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                            {(item.hostEstimate != null || item.serves != null) && (
+                              <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                                {[
+                                  item.hostEstimate != null ? `est ${item.hostEstimate}` : null,
+                                  item.serves != null ? `bringing ${item.serves}` : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                            )}
                             <span className="text-xs text-slate-400">
                               {item.claimedByGuestId
                                 ? guestNames[item.claimedByGuestId] ?? 'Claimed'
@@ -256,23 +313,40 @@ export default async function HostPage({ params }: PageProps) {
         {/* Roster */}
         <section className="rounded-xl bg-slate-900 p-5">
           <h2 className="text-lg font-semibold mb-3">Roster · {rsvps.length}</h2>
+
+          {dietarySummary.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              <span className="text-xs text-slate-400 self-center">Dietary needs:</span>
+              {dietarySummary.map(([name, count]) => (
+                <span key={name} className="text-xs rounded-full bg-amber-500/15 text-amber-200 px-2.5 py-0.5">
+                  {count} {name}
+                </span>
+              ))}
+            </div>
+          )}
+
           {rsvps.length === 0 ? (
             <p className="text-sm text-slate-400">No RSVPs yet.</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm min-w-[34rem]">
               <thead className="text-xs uppercase text-slate-400 border-b border-slate-800">
                 <tr>
-                  <th className="text-left py-2">Name</th>
-                  <th className="text-left py-2">Status</th>
-                  <th className="text-left py-2">+1</th>
-                  <th className="text-left py-2">Notes</th>
+                  <th className="text-left py-2 px-2">Name</th>
+                  <th className="text-left py-2 px-2">Status</th>
+                  <th className="text-left py-2 px-2">+1</th>
+                  <th className="text-left py-2 px-2">Dietary</th>
+                  <th className="text-left py-2 px-2">Notes</th>
                 </tr>
               </thead>
               <tbody>
-                {rsvps.map(r => (
+                {rsvps.map(r => {
+                  const g = guestById.get(r.guestId);
+                  const tags = g?.dietaryRestrictions ?? [];
+                  return (
                   <tr key={r.id} className="border-b border-slate-800/60">
-                    <td className="py-2 font-medium">{r.title}</td>
-                    <td className="py-2">
+                    <td className="py-2 px-2 font-medium">{r.title}</td>
+                    <td className="py-2 px-2">
                       <span
                         className={`rounded px-2 py-0.5 text-xs ${
                           r.status === 'Yes' ? 'bg-emerald-500/20 text-emerald-300'
@@ -284,12 +358,26 @@ export default async function HostPage({ params }: PageProps) {
                         {r.status}
                       </span>
                     </td>
-                    <td className="py-2 text-slate-300">{r.plusOnes}</td>
-                    <td className="py-2 text-slate-400 truncate max-w-xs">{r.notes}</td>
+                    <td className="py-2 px-2 text-slate-300">{r.plusOnes}</td>
+                    <td className="py-2 px-2 text-slate-300">
+                      {tags.length > 0 || g?.dietaryNotes ? (
+                        <div className="flex flex-wrap gap-1 items-center">
+                          {tags.map(t => (
+                            <span key={t} className="text-[10px] rounded bg-amber-500/15 text-amber-200 px-1.5 py-0.5">{t}</span>
+                          ))}
+                          {g?.dietaryNotes && <span className="text-[10px] text-slate-400">{g.dietaryNotes}</span>}
+                        </div>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-2 text-slate-400 truncate max-w-xs">{r.notes}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
+            </div>
           )}
         </section>
 
@@ -298,6 +386,15 @@ export default async function HostPage({ params }: PageProps) {
           recipients={recipients}
           isSurprise={event.isSurprise}
           defaultMessage={defaultReminderMessage}
+        />
+
+        {/* Nudge the unclaimed */}
+        <ReminderPanel
+          title="Nudge the unclaimed"
+          recipients={nudgeRecipients}
+          isSurprise={event.isSurprise}
+          defaultMessage={nudgeMessage}
+          emptyText="Everyone who RSVP'd Yes has claimed something. 🎉"
         />
 
         <footer className="text-xs text-slate-500 text-center pt-8">

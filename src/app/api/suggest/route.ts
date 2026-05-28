@@ -57,10 +57,8 @@ export async function POST(req: Request) {
   const maybe = rsvps.filter(r => r.status === 'Maybe');
   const plusOnesConfirmed = confirmed.reduce((s, r) => s + (r.plusOnes ?? 0), 0);
 
-  const claimsByCategory: Record<PotluckCategory, number> = {
-    Appetizer: 0, Main: 0, Side: 0, Dessert: 0, Drinks: 0, Supplies: 0,
-  };
-  for (const p of potluck) claimsByCategory[p.category]++;
+  const claimsByCategory: Record<PotluckCategory, number> = {};
+  for (const p of potluck) claimsByCategory[p.category] = (claimsByCategory[p.category] ?? 0) + 1;
 
   const inputs: SuggestionInputs = {
     confirmedCount: confirmed.length,
@@ -103,7 +101,7 @@ export async function POST(req: Request) {
         eventId: event.id,
         item: s.itemName,
         category: s.category,
-        serves: s.serves,
+        hostEstimate: s.serves,
         dietaryTags: s.dietaryTags,
         source: 'ai_suggested',
       });

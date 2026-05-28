@@ -2,7 +2,24 @@
 // Property names match Notion exactly — do not rename without updating Notion.
 
 export type RsvpStatus = 'Yes' | 'Maybe' | 'No' | 'No Response';
-export type PotluckCategory = 'Appetizer' | 'Main' | 'Side' | 'Dessert' | 'Drinks' | 'Supplies';
+// Categories are host-defined per event now, so this is a free string keyed on
+// the category name. The Notion "Category" select auto-creates option names on
+// write. See CategoryConfig for the per-event list a host configures.
+export type PotluckCategory = string;
+
+// One configurable category on an event's Spread.
+// - target: explicit host-set serving target. null = no fixed target.
+// - perGuest: servings-per-guest ratio used to auto-scale the target to live
+//   headcount when no explicit target is set. Only the built-in defaults carry
+//   one; host-added categories leave it null. If both target and perGuest are
+//   null the category is a plain claim-a-slot list (no coverage tracking),
+//   which is how non-food categories like "Activities" behave.
+export interface CategoryConfig {
+  id: string;                  // stable id so renames can carry their items along
+  name: string;
+  target: number | null;
+  perGuest?: number | null;
+}
 export type DietaryRestriction =
   | 'Vegetarian'
   | 'Vegan'
@@ -33,10 +50,13 @@ export interface Event {
   isPublished: boolean;
   hostSecret: string;
   targetHeadcount: number | null;
+  plusOnesMax: number | null;     // per-event cap on plus-ones (null → default)
+  hideClaimerNames: boolean;      // when true, guests don't see who claimed what
   cancelled: boolean;
-  // Per-category override of the headcount-derived servings target.
-  // null entries fall back to targetHeadcount × ratio at read time.
-  targetServings: Partial<Record<PotluckCategory, number | null>>;
+  // Host-defined category list for this event's Spread. Parsed from the
+  // "Spread Categories" rich_text JSON on the Events DB; falls back to a
+  // sensible default set when unset.
+  spreadCategories: CategoryConfig[];
 }
 
 export interface Guest {
@@ -66,7 +86,8 @@ export interface PotluckItem {
   item: string;
   eventId: string;
   category: PotluckCategory;
-  serves: number | null;
+  serves: number | null;        // guest-declared servings; what counts toward coverage
+  hostEstimate: number | null;  // host's planning estimate; informational, never counts
   dietaryTags: PotluckDietaryTag[];
   claimedByGuestId: string | null;
   claimedAt: string | null;

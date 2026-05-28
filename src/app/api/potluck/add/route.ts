@@ -6,14 +6,13 @@ import {
   findGuestByPhone,
 } from '@/lib/notion';
 import { normalizePhone } from '@/lib/phone';
-import type { PotluckCategory } from '@/lib/schema';
-import { DEFAULTS_PER_DISH, ALL_CATEGORIES } from '@/lib/categories';
+import { DEFAULT_ITEM_SERVINGS } from '@/lib/categories';
 
 interface AddBody {
   slug: string;
   phone: string;
   item: string;
-  category: PotluckCategory;
+  category: string;
   servings?: number;
 }
 
@@ -27,9 +26,7 @@ export async function POST(req: Request) {
 
   if (!body.slug) return NextResponse.json({ error: 'Missing slug' }, { status: 400 });
   if (!body.item || !body.item.trim())
-    return NextResponse.json({ error: 'Dish name required' }, { status: 400 });
-  if (!ALL_CATEGORIES.includes(body.category))
-    return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
+    return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
   const phone = normalizePhone(body.phone);
   if (!phone) return NextResponse.json({ error: 'Invalid phone' }, { status: 400 });
@@ -39,17 +36,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 });
   }
 
-  const guest = await findGuestByPhone(phone);
-  if (!guest) {
-    return NextResponse.json(
-      { error: 'RSVP first before adding a dish' },
-      { status: 403 }
-    );
+  const category = event.spreadCategories.find(c => c.name === body.category);
+  if (!category) {
+    return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
   }
 
-  const servings = Number.isFinite(body.servings) && (body.servings as number) > 0
+  const guest = await findGuestByPhone(phone);
+  if (!guest) {
+    return NextResponse.json({ error: 'RSVP first before adding something' }, { status: 403 });
+  }
+
+  // Only food-style categories track servings; plain lists (e.g. Activities)
+  // store no serving count.
+  const tracksServings = category.target != null || category.perGuest != null;
+  const servings = !tracksServings
+    ? undefined
+    : Number.isFinite(body.servings) && (body.servings as number) > 0
     ? Math.round(body.servings as number)
-    : DEFAULTS_PER_DISH[body.category];
+    : DEFAULT_ITEM_SERVINGS;
 
   try {
     const created = await createPotluckItem({
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, item: claimed });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to add dish' },
+      { error: err instanceof Error ? err.message : 'Failed to add' },
       { status: 500 }
     );
   }

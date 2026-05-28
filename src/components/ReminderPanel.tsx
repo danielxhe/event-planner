@@ -13,11 +13,14 @@ interface Props {
   recipients: Recipient[];
   isSurprise: boolean;
   defaultMessage: string;
+  title?: string;
+  emptyText?: string;
 }
 
-export function ReminderPanel({ recipients, isSurprise, defaultMessage }: Props) {
+export function ReminderPanel({ recipients, isSurprise, defaultMessage, title, emptyText }: Props) {
   const [message, setMessage] = useState(defaultMessage);
   const [copied, setCopied] = useState<string | null>(null);
+  const heading = title ?? 'Send reminders';
 
   function copy(label: string, text: string) {
     if (typeof navigator === 'undefined' || !navigator.clipboard) return;
@@ -33,8 +36,8 @@ export function ReminderPanel({ recipients, isSurprise, defaultMessage }: Props)
   if (recipients.length === 0) {
     return (
       <section className="rounded-xl bg-slate-900 p-5">
-        <h2 className="text-lg font-semibold mb-2">Send reminders</h2>
-        <p className="text-sm text-slate-400">No one has RSVPd Yes or Maybe yet.</p>
+        <h2 className="text-lg font-semibold mb-2">{heading}</h2>
+        <p className="text-sm text-slate-400">{emptyText ?? 'No one has RSVPd Yes or Maybe yet.'}</p>
       </section>
     );
   }
@@ -45,7 +48,7 @@ export function ReminderPanel({ recipients, isSurprise, defaultMessage }: Props)
   return (
     <section className="rounded-xl bg-slate-900 p-5">
       <h2 className="text-lg font-semibold mb-1">
-        Send reminders · {recipients.length}
+        {heading} · {recipients.length}
       </h2>
       <p className="text-xs text-slate-400 mb-3">
         {yesCount} Yes · {maybeCount} Maybe. Tap &ldquo;Text&rdquo; on each row to message individually

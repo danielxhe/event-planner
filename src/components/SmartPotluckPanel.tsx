@@ -7,6 +7,7 @@ import type { PotluckCategory, PotluckDietaryTag } from '@/lib/schema';
 interface Props {
   slug: string;
   hostSecret: string;
+  categories: string[];
 }
 
 interface DraftSuggestion {
@@ -18,19 +19,17 @@ interface DraftSuggestion {
   rationale: string;
 }
 
-const CATEGORIES: PotluckCategory[] = ['Appetizer', 'Main', 'Side', 'Dessert', 'Drinks', 'Supplies'];
 const TAGS: PotluckDietaryTag[] = ['Vegetarian', 'Vegan', 'Gluten-Free', 'Nut-Free', 'Dairy-Free'];
 
-export function SmartPotluckPanel({ slug, hostSecret }: Props) {
+export function SmartPotluckPanel({ slug, hostSecret, categories }: Props) {
   const router = useRouter();
+  const firstCat = categories[0] ?? 'Main';
   const [open, setOpen] = useState(false);
-  const [drafts, setDrafts] = useState<DraftSuggestion[]>([
-    blank('Appetizer'),
-  ]);
+  const [drafts, setDrafts] = useState<DraftSuggestion[]>(() => [blank()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function blank(category: PotluckCategory): DraftSuggestion {
+  function blank(category: string = firstCat): DraftSuggestion {
     return {
       id: crypto.randomUUID(),
       category,
@@ -90,7 +89,7 @@ export function SmartPotluckPanel({ slug, hostSecret }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Suggestion run failed');
       setOpen(false);
-      setDrafts([blank('Appetizer')]);
+      setDrafts([blank()]);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Suggestion run failed');
@@ -145,10 +144,10 @@ export function SmartPotluckPanel({ slug, hostSecret }: Props) {
                   <div className="grid grid-cols-2 gap-2">
                     <select
                       value={draft.category}
-                      onChange={e => updateDraft(draft.id, { category: e.target.value as PotluckCategory })}
+                      onChange={e => updateDraft(draft.id, { category: e.target.value })}
                       className="rounded bg-slate-700 px-2 py-1.5 text-sm"
                     >
-                      {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <input
                       type="text"
@@ -197,7 +196,7 @@ export function SmartPotluckPanel({ slug, hostSecret }: Props) {
 
             <button
               type="button"
-              onClick={() => setDrafts(ds => [...ds, blank('Main')])}
+              onClick={() => setDrafts(ds => [...ds, blank()])}
               className="mt-3 text-sm text-purple-300 hover:text-purple-200"
             >
               + Add another suggestion

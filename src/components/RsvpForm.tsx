@@ -12,6 +12,7 @@ interface Props {
 
 const STORAGE_KEY = 'ep:phone';
 const NAME_KEY = 'ep:name';
+const GUEST_KEY = 'ep:guestId';
 
 const DIETARY_OPTIONS: DietaryRestriction[] = [
   'Vegetarian', 'Vegan', 'Gluten-Free', 'Nut Allergy',
@@ -75,8 +76,16 @@ export function RsvpForm({ slug, plusOnesMax = 2, targetHeadcount }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'RSVP failed');
       // Persist phone + name so guest can claim potluck items and not retype
-      localStorage.setItem(STORAGE_KEY, data.phone ?? phone.trim());
+      const savedPhone = data.phone ?? phone.trim();
+      localStorage.setItem(STORAGE_KEY, savedPhone);
       localStorage.setItem(NAME_KEY, name.trim());
+      if (data.guestId) localStorage.setItem(GUEST_KEY, data.guestId);
+      // Tell PotluckList (already mounted, won't re-run its mount effect on
+      // router.refresh) that the guest now has an identity, so its claim
+      // buttons appear without a full reload.
+      window.dispatchEvent(
+        new CustomEvent('ep:identity', { detail: { phone: savedPhone, guestId: data.guestId } })
+      );
       if (data.saved) setSaved(data.saved);
       setDone(true);
       router.refresh();

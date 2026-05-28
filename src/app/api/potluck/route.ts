@@ -32,11 +32,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
+  // A host-added (or AI-suggested) item carries only a planning estimate, never
+  // a guest-declared serving count.
   const item = await createPotluckItem({
     eventId: event.id,
     item: body.item.trim(),
     category: body.category,
-    serves: body.serves,
+    hostEstimate: body.serves,
     dietaryTags: body.dietaryTags,
     source: body.source ?? 'host_added',
     notes: body.notes,

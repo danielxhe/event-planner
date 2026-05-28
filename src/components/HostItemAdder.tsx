@@ -2,19 +2,17 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { PotluckCategory } from '@/lib/schema';
 
 interface Props {
   slug: string;
   hostSecret: string;
+  categories: string[];
 }
 
-const CATEGORIES: PotluckCategory[] = ['Appetizer', 'Main', 'Side', 'Dessert', 'Drinks', 'Supplies'];
-
-export function HostItemAdder({ slug, hostSecret }: Props) {
+export function HostItemAdder({ slug, hostSecret, categories }: Props) {
   const router = useRouter();
   const [item, setItem] = useState('');
-  const [category, setCategory] = useState<PotluckCategory>('Main');
+  const [category, setCategory] = useState<string>(categories[0] ?? 'Main');
   const [serves, setServes] = useState(8);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,10 +56,10 @@ export function HostItemAdder({ slug, hostSecret }: Props) {
       />
       <select
         value={category}
-        onChange={e => setCategory(e.target.value as PotluckCategory)}
+        onChange={e => setCategory(e.target.value)}
         className="rounded bg-slate-800 border border-slate-700 px-2 py-1.5 text-sm"
       >
-        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+        {categories.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
       <input
         type="number"
@@ -69,7 +67,8 @@ export function HostItemAdder({ slug, hostSecret }: Props) {
         value={serves}
         onChange={e => setServes(Number(e.target.value) || 1)}
         className="w-16 rounded bg-slate-800 border border-slate-700 px-2 py-1.5 text-sm"
-        title="Serves"
+        title="Your serving estimate (planning only — the guest who claims it sets the real count)"
+        placeholder="est."
       />
       <button
         type="submit"

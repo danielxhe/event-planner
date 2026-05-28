@@ -5,6 +5,7 @@ import { normalizePhone } from '@/lib/phone';
 interface ClaimBody {
   itemId: string;
   phone: string;
+  servings?: number;
 }
 
 export async function POST(req: Request) {
@@ -27,8 +28,13 @@ export async function POST(req: Request) {
     );
   }
 
+  const servings =
+    Number.isFinite(body.servings) && (body.servings as number) > 0
+      ? Math.round(body.servings as number)
+      : undefined;
+
   try {
-    const item = await claimPotluckAtomic(body.itemId, guest.id);
+    const item = await claimPotluckAtomic(body.itemId, guest.id, servings);
     return NextResponse.json({ ok: true, item });
   } catch (err) {
     return NextResponse.json(

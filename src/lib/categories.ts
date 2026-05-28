@@ -1,139 +1,86 @@
-// Category balance logic for the potluck.
-// Ratios are servings-per-confirmed-guest. Source: standard catering rules of
-// thumb, locked V1.1 2026-05-27. Host can override per-event by setting
-// "Target Servings <Category>" on the Events Notion DB.
+// Category balance logic for the Spread.
+// Categories are configured per event (see CategoryConfig in schema). A category
+// with an (effective) target shows coverage dots; one without is a plain
+// claim-a-slot list, which is how non-food categories like "Activities" behave.
 
-import type { PotluckCategory, PotluckItem, Rsvp } from './schema';
+import type { CategoryConfig, PotluckItem, Rsvp } from './schema';
 
-// Categories shown with dot-row UI on the guest page.
-// "Supplies" is intentionally excluded, it has no servings ratio.
-export type DotCategory = 'Appetizer' | 'Main' | 'Side' | 'Dessert' | 'Drinks';
-export const DOT_CATEGORIES: DotCategory[] = [
-  'Appetizer',
-  'Main',
-  'Side',
-  'Dessert',
-  'Drinks',
+// Fallback category set for events that have not saved a config yet.
+// perGuest ratios reproduce the original headcount-scaled targets; Supplies is
+// a plain list. Names match the existing Notion "Category" select option values
+// so legacy items still group correctly.
+export const DEFAULT_SPREAD_CATEGORIES: CategoryConfig[] = [
+  { id: 'def-appetizer', name: 'Appetizer', target: null, perGuest: 2.5 },
+  { id: 'def-main', name: 'Main', target: null, perGuest: 1.0 },
+  { id: 'def-side', name: 'Side', target: null, perGuest: 1.0 },
+  { id: 'def-dessert', name: 'Dessert', target: null, perGuest: 0.75 },
+  { id: 'def-drinks', name: 'Drinks', target: null, perGuest: 2.0 },
+  { id: 'def-supplies', name: 'Supplies', target: null, perGuest: null },
 ];
 
-// Full enum order (for the "Supplies" plain section under the dot list).
-export const ALL_CATEGORIES: PotluckCategory[] = [
-  'Appetizer',
-  'Main',
-  'Side',
-  'Dessert',
-  'Drinks',
-  'Supplies',
-];
+// Quick-pick serving sizes offered in the add/edit forms (plus a custom field).
+export const QUICK_SERVINGS = [2, 4, 6, 8];
 
-// Servings per confirmed guest. Drinks counts a drink as 1 serving.
-export const RATIOS: Record<DotCategory, number> = {
-  Appetizer: 2.5,
-  Main: 1.0,
-  Side: 1.0,
-  Dessert: 0.75,
-  Drinks: 2.0,
-};
-
-// Defaults that pre-fill the servings field when a guest adds a new dish.
-// Also used as the fallback when a host-created item has Serves unset.
-export const DEFAULTS_PER_DISH: Record<PotluckCategory, number> = {
-  Appetizer: 8,
-  Main: 6,
-  Side: 6,
-  Dessert: 8,
-  Drinks: 12,
-  Supplies: 1,
-};
-
-// Quick-chip options shown next to the servings input.
-export const SERVING_CHIPS: Record<PotluckCategory, number[]> = {
-  Appetizer: [4, 8, 12, 16],
-  Main: [4, 6, 8, 12],
-  Side: [4, 6, 8, 12],
-  Dessert: [4, 8, 12, 16],
-  Drinks: [6, 12, 18, 24],
-  Supplies: [1, 2, 5, 10],
-};
-
-// Display labels (plural).
-export const CATEGORY_LABEL: Record<PotluckCategory, string> = {
-  Appetizer: 'Appetizers',
-  Main: 'Mains',
-  Side: 'Sides',
-  Dessert: 'Desserts',
-  Drinks: 'Drinks',
-  Supplies: 'Supplies',
-};
+// Fallback servings for an item whose Serves is unset (host-added items mostly).
+export const DEFAULT_ITEM_SERVINGS = 6;
 
 export interface CategoryStat {
-  category: PotluckCategory;
-  label: string;
-  target: number | null;        // null = both host override and headcount-derived target are unset
-  claimed: number;              // sum of effective servings on all items in this category
-  gap: number;                  // max(target - claimed, 0); 0 if target null
-  dotsFilled: number;           // 0..5 integer for display
-  status: 'covered' | 'needed' | 'unset';
+  name: string;
+  target: number | null;       // effective target; null = plain list (no coverage)
+  claimed: number;             // sum of effective servings on items a guest has claimed
+  gap: number;                 // max(target - claimed, 0); 0 when target is null
+  dotsFilled: number;          // 0..5 for display
+  tracksServings: boolean;     // target != null
+  status: 'covered' | 'needed' | 'list';
 }
 
 export function effectiveServings(item: PotluckItem): number {
   if (item.serves != null) return item.serves;
-  return DEFAULTS_PER_DISH[item.category] ?? 0;
+  return DEFAULT_ITEM_SERVINGS;
 }
 
-export interface CategoryStatsInput {
-  targetServings?: Partial<Record<PotluckCategory, number | null>>;
-  // Headcount the target ratio multiplies against. Callers should pass
-  // estimatedHeadcountFromRsvps(...) so the dot board tracks live RSVPs;
-  // null disables the headcount-derived fallback.
-  effectiveHeadcount: number | null;
-}
-
-function targetFor(category: PotluckCategory, input: CategoryStatsInput): number | null {
-  if (category === 'Supplies') return null;
-  const override = input.targetServings?.[category];
-  if (override != null) return override;
-  const ratio = RATIOS[category as keyof typeof RATIOS];
-  if (input.effectiveHeadcount != null && input.effectiveHeadcount > 0 && ratio != null) {
-    return Math.round(input.effectiveHeadcount * ratio);
+// Effective target for a category: explicit host target wins; else scale the
+// per-guest ratio to live headcount; else null (plain list, no coverage).
+export function effectiveTarget(c: CategoryConfig, headcount: number | null): number | null {
+  if (c.target != null) return c.target;
+  if (c.perGuest != null && headcount != null && headcount > 0) {
+    return Math.round(headcount * c.perGuest);
   }
   return null;
 }
 
 export function computeCategoryStats(
   items: PotluckItem[],
-  input: CategoryStatsInput,
+  categories: CategoryConfig[],
+  effectiveHeadcount: number | null,
 ): CategoryStat[] {
-  return DOT_CATEGORIES.map(cat => {
-    const target = targetFor(cat, input);
+  return categories.map(c => {
+    const target = effectiveTarget(c, effectiveHeadcount);
+    // Only count dishes a guest has actually claimed toward coverage — an
+    // unclaimed dish (e.g. host-seeded) is a slot still waiting for someone.
     const claimed = items
-      .filter(i => i.category === cat)
+      .filter(i => i.category === c.name && i.claimedByGuestId)
       .reduce((sum, i) => sum + effectiveServings(i), 0);
-    let status: CategoryStat['status'];
-    let dotsFilled: number;
-    let gap: number;
+    const claimedRounded = Math.round(claimed);
+
     if (target == null) {
-      status = 'unset';
-      dotsFilled = 0;
-      gap = 0;
-    } else if (claimed >= target) {
-      status = 'covered';
-      dotsFilled = 5;
-      gap = 0;
-    } else {
-      status = 'needed';
-      const ratio = target > 0 ? claimed / target : 0;
-      dotsFilled = Math.max(0, Math.min(4, Math.floor(ratio * 5)));
-      gap = Math.max(0, Math.round(target - claimed));
+      return {
+        name: c.name, target: null, claimed: claimedRounded,
+        gap: 0, dotsFilled: 0, tracksServings: false, status: 'list',
+      };
     }
+    if (claimed >= target) {
+      return {
+        name: c.name, target, claimed: claimedRounded,
+        gap: 0, dotsFilled: 5, tracksServings: true, status: 'covered',
+      };
+    }
+    const ratio = target > 0 ? claimed / target : 0;
     return {
-      category: cat,
-      label: CATEGORY_LABEL[cat],
-      target,
-      claimed: Math.round(claimed),
-      gap,
-      dotsFilled,
-      status,
+      name: c.name, target, claimed: claimedRounded,
+      gap: Math.max(0, Math.round(target - claimed)),
+      dotsFilled: Math.max(0, Math.min(4, Math.floor(ratio * 5))),
+      tracksServings: true, status: 'needed',
     };
   });
 }
@@ -169,9 +116,10 @@ export function estimatedHeadcountFromRsvps(
   return null;
 }
 
-// Sort stats so the largest gap floats to the top, then unset, then covered.
+// Sort stats so the largest gap floats to the top, then plain lists, then
+// covered. Used on the guest dot board; the host editor keeps config order.
 export function sortStatsByNeed(stats: CategoryStat[]): CategoryStat[] {
-  const rank = (s: CategoryStat) => (s.status === 'needed' ? 0 : s.status === 'unset' ? 1 : 2);
+  const rank = (s: CategoryStat) => (s.status === 'needed' ? 0 : s.status === 'list' ? 1 : 2);
   return [...stats].sort((a, b) => {
     const r = rank(a) - rank(b);
     if (r !== 0) return r;
