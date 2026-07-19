@@ -685,6 +685,49 @@ export interface CreatePotluckInput {
   notes?: string;
 }
 
+export interface CreateEventInput {
+  name: string;
+  slug: string;
+  hostSecret: string;
+  date?: string;
+  venueName?: string;
+  venueAddress?: string;
+  description?: string;
+  targetHeadcount?: number;
+  isSurprise?: boolean;
+  hostPhone?: string;
+}
+
+// Self-serve event creation. Spread Categories is left empty so the event
+// starts on DEFAULT_SPREAD_CATEGORIES; the host tunes them from the dashboard.
+export async function createEvent(input: CreateEventInput): Promise<Event> {
+  const created = await notionRequest('POST', '/v1/pages', {
+    parent: { type: 'data_source_id', data_source_id: DSID.events },
+    properties: {
+      Name: { title: [{ text: { content: input.name } }] },
+      Slug: { rich_text: [{ text: { content: input.slug } }] },
+      'Host Secret': { rich_text: [{ text: { content: input.hostSecret } }] },
+      'Is Published': { checkbox: true },
+      'Is Surprise': { checkbox: !!input.isSurprise },
+      ...(input.date ? { Date: { date: { start: input.date } } } : {}),
+      ...(input.venueName
+        ? { 'Venue Name': { rich_text: [{ text: { content: input.venueName } }] } }
+        : {}),
+      ...(input.venueAddress
+        ? { 'Venue Address': { rich_text: [{ text: { content: input.venueAddress } }] } }
+        : {}),
+      ...(input.description
+        ? { Description: { rich_text: [{ text: { content: input.description } }] } }
+        : {}),
+      ...(input.targetHeadcount != null
+        ? { 'Target Headcount': { number: input.targetHeadcount } }
+        : {}),
+      ...(input.hostPhone ? { 'Host Phone': { phone_number: input.hostPhone } } : {}),
+    },
+  });
+  return pageToEvent(created);
+}
+
 export async function createPotluckItem(input: CreatePotluckInput): Promise<PotluckItem> {
   const created = await notionRequest('POST', '/v1/pages', {
     parent: { type: 'data_source_id', data_source_id: DSID.potluck },
