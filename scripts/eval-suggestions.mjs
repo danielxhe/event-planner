@@ -100,7 +100,7 @@ function scoreRun(page) {
   const suggestions = parseJson(text(page, 'Suggestions'));
   const accepted = parseJson(text(page, 'Host Accepted'));
   const rejected = parseJson(text(page, 'Host Rejected'));
-  const actual = parseJson(text(page, 'Post Party Actual'));
+  const actual = parseJson(text(page, 'Post-Party Actual'));
 
   for (const [k, v] of Object.entries({ inputs, suggestions, accepted, rejected, actual })) {
     if (v === 'UNPARSEABLE') run.flags.push(`${k}: truncated/unparseable JSON`);

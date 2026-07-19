@@ -1,5 +1,11 @@
 import { notFound } from 'next/navigation';
-import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent, listGuestsByIds } from '@/lib/notion';
+import {
+  findEventBySlug,
+  listRsvpsByEvent,
+  listPotluckByEvent,
+  listGuestsByIds,
+  listSuggestionRunsByEvent,
+} from '@/lib/notion';
 import { hostSecretValid } from '@/lib/auth';
 import { SmartPotluckPanel } from '@/components/SmartPotluckPanel';
 import { HostItemAdder } from '@/components/HostItemAdder';
@@ -7,6 +13,7 @@ import { HostSpreadItem } from '@/components/HostSpreadItem';
 import { HostRosterRow } from '@/components/HostRosterRow';
 import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
 import { DishReminderPanel, type DishReminderRow } from '@/components/DishReminderPanel';
+import { PostPartyPanel, type PostPartyItem } from '@/components/PostPartyPanel';
 import { CategoryEditor } from '@/components/CategoryEditor';
 import { EventDetailsEditor } from '@/components/EventDetailsEditor';
 import { GuestLinkBar } from '@/components/GuestLinkBar';
@@ -181,6 +188,33 @@ export default async function HostPage({ params }: PageProps) {
       return { name: g.name || guestNames[gid] || g.phone, phone: g.phone, items };
     })
     .filter((r): r is DishReminderRow => r !== null);
+
+  // Post-party check-in: once the date has passed, the host records ground
+  // truth per claimed dish (prefilled from the latest saved check-in, if any).
+  const eventOver = !!event.date && Date.parse(event.date) < Date.now();
+  let postPartyItems: PostPartyItem[] = [];
+  let postPartyInitial: { itemName: string; brought: boolean; dietaryOk: boolean; note?: string }[] | null = null;
+  if (eventOver) {
+    postPartyItems = claimedItems.map(p => {
+      const eff = effectivePotluck(p);
+      return {
+        name: eff.item,
+        claimerName: p.claimedByGuestId ? guestNames[p.claimedByGuestId] ?? null : null,
+      };
+    });
+    if (postPartyItems.length > 0) {
+      const runs = await listSuggestionRunsByEvent(event.id);
+      const withActual = runs.find(r => r.postPartyActual?.trim());
+      if (withActual) {
+        try {
+          const parsed: unknown = JSON.parse(withActual.postPartyActual);
+          if (Array.isArray(parsed)) postPartyInitial = parsed;
+        } catch {
+          // Unparseable prior check-in — start fresh rather than crash the page.
+        }
+      }
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -433,6 +467,16 @@ export default async function HostPage({ params }: PageProps) {
             </div>
           )}
         </section>
+
+        {/* Post-party check-in (only after the event date) */}
+        {eventOver && (
+          <PostPartyPanel
+            slug={event.slug}
+            hostSecret={event.hostSecret}
+            items={postPartyItems}
+            initial={postPartyInitial}
+          />
+        )}
 
         {/* Reminder panel */}
         <ReminderPanel

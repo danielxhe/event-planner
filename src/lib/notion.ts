@@ -800,9 +800,18 @@ export async function createSuggestionRun(input: CreateSuggestionRunInput): Prom
 }
 
 // Record the host's review verdict on a suggestion run (Phase 2 accept/reject).
+export async function listSuggestionRunsByEvent(eventId: string): Promise<SuggestionRun[]> {
+  const res = await queryDS(DSID.suggestions, {
+    filter: { property: 'Event', relation: { contains: eventId } },
+    sorts: [{ property: 'Run At', direction: 'descending' }],
+    page_size: 50,
+  });
+  return res.results.map(pageToSuggestionRun);
+}
+
 export async function updateSuggestionRun(
   id: string,
-  patch: { hostAccepted?: unknown; hostRejected?: unknown; notes?: string }
+  patch: { hostAccepted?: unknown; hostRejected?: unknown; postPartyActual?: unknown; notes?: string }
 ): Promise<void> {
   const props: Record<string, unknown> = {};
   if (patch.hostAccepted !== undefined) {
@@ -810,6 +819,9 @@ export async function updateSuggestionRun(
   }
   if (patch.hostRejected !== undefined) {
     props['Host Rejected'] = jsonRichText(patch.hostRejected);
+  }
+  if (patch.postPartyActual !== undefined) {
+    props['Post-Party Actual'] = jsonRichText(patch.postPartyActual);
   }
   if (patch.notes) {
     props['Notes'] = { rich_text: [{ text: { content: patch.notes } }] };
