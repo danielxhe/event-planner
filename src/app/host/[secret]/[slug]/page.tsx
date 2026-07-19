@@ -6,10 +6,11 @@ import { HostItemAdder } from '@/components/HostItemAdder';
 import { HostSpreadItem } from '@/components/HostSpreadItem';
 import { HostRosterRow } from '@/components/HostRosterRow';
 import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
+import { DishReminderPanel, type DishReminderRow } from '@/components/DishReminderPanel';
 import { CategoryEditor } from '@/components/CategoryEditor';
 import { EventDetailsEditor } from '@/components/EventDetailsEditor';
 import { GuestLinkBar } from '@/components/GuestLinkBar';
-import { computeCategoryStats } from '@/lib/categories';
+import { computeCategoryStats, effectivePotluck } from '@/lib/categories';
 
 interface PageProps {
   params: Promise<{ secret: string; slug: string }>;
@@ -162,6 +163,24 @@ export default async function HostPage({ params }: PageProps) {
   // guestId → name (for displaying who claimed what)
   const guestNames: Record<string, string> = {};
   for (const r of rsvps) guestNames[r.guestId] = r.title;
+
+  // Per-guest claimed dishes → item-level reminder drafts ("you're bringing X").
+  const claimsByGuest = new Map<string, string[]>();
+  for (const p of potluck) {
+    if (!p.claimedByGuestId) continue;
+    const eff = effectivePotluck(p);
+    claimsByGuest.set(p.claimedByGuestId, [
+      ...(claimsByGuest.get(p.claimedByGuestId) ?? []),
+      eff.item,
+    ]);
+  }
+  const dishReminderRows: DishReminderRow[] = [...claimsByGuest.entries()]
+    .map(([gid, items]): DishReminderRow | null => {
+      const g = guestById.get(gid);
+      if (!g?.phone) return null;
+      return { name: g.name || guestNames[gid] || g.phone, phone: g.phone, items };
+    })
+    .filter((r): r is DishReminderRow => r !== null);
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -420,6 +439,15 @@ export default async function HostPage({ params }: PageProps) {
           recipients={recipients}
           isSurprise={event.isSurprise}
           defaultMessage={defaultReminderMessage}
+        />
+
+        {/* Item-level dish reminders */}
+        <DishReminderPanel
+          rows={dishReminderRows}
+          eventName={event.name}
+          eventDateStr={eventDateStr}
+          guestLink={guestLink}
+          isSurprise={event.isSurprise}
         />
 
         {/* Nudge the unclaimed */}
