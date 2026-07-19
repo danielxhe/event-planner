@@ -112,7 +112,19 @@ Scored honestly against the V3 working tree. PASS 18 · PARTIAL 5 · UNVERIFIED 
 
 ## 7. Next (in leverage order)
 
-1. **Item-level day-before reminders** (P2, white space #5): "you're bringing the mac and cheese tomorrow" — extend ReminderPanel to per-claimed-item SMS drafts.
-2. Real-host recruitment (5–10 hosts) + the metrics in §5 of the case study — this is the PM-portfolio payoff.
-3. Share button on confirmation; inline edit of AI suggestions pre-add; reduced-motion gating; SR pass.
+1. ~~Item-level day-before reminders~~ **SHIPPED in V3.1** (§8).
+2. Real-host recruitment (5–10 hosts) + the metrics in §5 of the case study — this is the PM-portfolio payoff. Unblocked by V3.1 self-serve creation.
+3. Share button on confirmation; inline edit of AI suggestions pre-add; "Bringing" column on the roster; reduced-motion gating; SR pass.
 4. Phase 2 eval milestone: after 3+ AI-assisted events, run the scorer and write the Phase 1 vs Phase 2 comparison into the case study.
+
+## 8. V3.1 addendum (2026-07-19) — organizer walkthrough → shipped fixes
+
+A full end-to-end walkthrough as "the organizer" (create → invite → RSVP → claim → suggest → remind → close out) surfaced two existential gaps and one demonstrated bug; all five findings shipped same-day:
+
+| Finding | Fix |
+|---|---|
+| No way to become a host (events hand-provisioned in Notion) | Landing pitch + `/new` + `/api/event/create`; secret-URL "bookmark this" moment |
+| Claim survives an RSVP flip to No (live repro: coverage lied) | `/api/rsvp` releases claims on No, tells the guest what was freed |
+| Reminders generic + manual | Per-claimer dish reminder drafts with editable template |
+| No post-party write path (scorer ground truth unreachable; latent property-name bug meant it would never score) | `PostPartyPanel` + `/api/suggest/post-party` + scorer fix; brought-rate verified live |
+| Invite links unfurl as bare URLs | `generateMetadata` + per-event OG card; date-only timezone fix |
