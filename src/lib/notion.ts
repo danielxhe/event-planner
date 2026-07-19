@@ -22,6 +22,7 @@ import type {
   CategoryConfig,
   DietaryRestriction,
   PotluckDietaryTag,
+  HostOverride,
   PotluckSource,
   RsvpSource,
   SuggestionMode,
@@ -44,6 +45,32 @@ function parseSpreadCategories(raw: string): CategoryConfig[] {
     return cleaned.length > 0 ? cleaned : DEFAULT_SPREAD_CATEGORIES;
   } catch {
     return DEFAULT_SPREAD_CATEGORIES;
+  }
+}
+
+const VALID_DIETARY_TAGS: PotluckDietaryTag[] = ['Vegetarian', 'Vegan', 'Gluten-Free', 'Nut-Free', 'Dairy-Free'];
+
+// Parse the "Host Override" rich_text JSON blob defensively. Returns null when
+// empty/invalid or when no field carries a meaningful value.
+function parseHostOverride(raw: string): HostOverride | null {
+  if (!raw || !raw.trim()) return null;
+  try {
+    const p: unknown = JSON.parse(raw);
+    if (!p || typeof p !== 'object') return null;
+    const o = p as Record<string, unknown>;
+    const out: HostOverride = {};
+    if (typeof o.item === 'string' && o.item.trim()) out.item = o.item.trim().slice(0, 80);
+    if (typeof o.category === 'string' && o.category.trim()) out.category = o.category.trim().slice(0, 40);
+    if (typeof o.claimer === 'string' && o.claimer.trim()) out.claimer = o.claimer.trim().slice(0, 80);
+    if (typeof o.serves === 'number' && Number.isFinite(o.serves)) out.serves = o.serves;
+    if (Array.isArray(o.dietaryTags)) {
+      out.dietaryTags = o.dietaryTags.filter(
+        (t): t is PotluckDietaryTag => typeof t === 'string' && VALID_DIETARY_TAGS.includes(t as PotluckDietaryTag)
+      );
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch {
+    return null;
   }
 }
 
@@ -191,6 +218,8 @@ export function pageToPotluck(p: Page): PotluckItem {
     claimedAt: getDate(p, 'Claimed At'),
     source: getSelect<PotluckSource>(p, 'Source', 'host_added'),
     notes: getRichText(p, 'Notes'),
+    hostOverride: parseHostOverride(getRichText(p, 'Host Override')),
+    showHostValue: getCheckbox(p, 'Show Host Value'),
   };
 }
 
@@ -218,8 +247,23 @@ export function pageToSuggestionRun(p: Page): SuggestionRun {
 // If the SDK version doesn't expose it directly, fall back to fetch.
 // cache: 'no-store' — dedup lookups (findGuestByPhone, findRsvp) need
 // read-after-write; a stale "not found" answer produces duplicate rows.
+// Notion's public API caps an integration at ~3 req/s. Under a burst (many
+// guests opening the invite at once) it returns 429, which without a retry
+// surfaces as a 500 on the guest page. Retry a few times honoring Retry-After,
+// with capped backoff.
+async function fetchWithRetry(url: string, init: RequestInit, tries = 3): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt >= tries - 1) return res;
+    const ra = Number(res.headers.get('Retry-After'));
+    const waitMs =
+      Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 5000) : Math.min(300 * 2 ** attempt, 2000);
+    await new Promise(r => setTimeout(r, waitMs));
+  }
+}
+
 async function queryDS(dsId: string, body: Record<string, unknown> = {}): Promise<QueryResponse> {
-  const res = await fetch(`https://api.notion.com/v1/data_sources/${dsId}/query`, {
+  const res = await fetchWithRetry(`https://api.notion.com/v1/data_sources/${dsId}/query`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
@@ -265,7 +309,7 @@ export async function listGuestsByIds(ids: string[]): Promise<Guest[]> {
   if (ids.length === 0) return [];
   const results = await Promise.all(
     ids.map(async id => {
-      const res = await fetch(`https://api.notion.com/v1/pages/${id}`, {
+      const res = await fetchWithRetry(`https://api.notion.com/v1/pages/${id}`, {
         headers: {
           Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
           'Notion-Version': '2025-09-03',
@@ -302,7 +346,7 @@ export async function findRsvp(eventId: string, guestId: string): Promise<Rsvp |
 }
 
 export async function getPotluckItem(itemId: string): Promise<PotluckItem | null> {
-  const res = await fetch(`https://api.notion.com/v1/pages/${itemId}`, {
+  const res = await fetchWithRetry(`https://api.notion.com/v1/pages/${itemId}`, {
     headers: {
       Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
       'Notion-Version': '2025-09-03',
@@ -317,7 +361,7 @@ export async function getPotluckItem(itemId: string): Promise<PotluckItem | null
 // ---------- Writes ----------
 
 async function notionRequest(method: string, path: string, body?: unknown): Promise<PageObjectResponse> {
-  const res = await fetch(`https://api.notion.com${path}`, {
+  const res = await fetchWithRetry(`https://api.notion.com${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
@@ -426,6 +470,83 @@ export async function upsertRsvp(input: UpsertRsvpInput): Promise<Rsvp> {
   return pageToRsvp(created);
 }
 
+export async function getRsvp(id: string): Promise<Rsvp | null> {
+  const res = await fetchWithRetry(`https://api.notion.com/v1/pages/${id}`, {
+    headers: { Authorization: `Bearer ${process.env.NOTION_TOKEN}`, 'Notion-Version': '2025-09-03' },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  return pageToRsvp((await res.json()) as PageObjectResponse);
+}
+
+export interface HostUpdateRsvpInput {
+  rsvpId: string;
+  guestName?: string;
+  status?: RsvpStatus;
+  plusOnes?: number;
+  notes?: string;
+}
+
+// Host edit of the event-specific RSVP row (status, plus-ones, notes, display name).
+export async function hostUpdateRsvp(input: HostUpdateRsvpInput): Promise<Rsvp> {
+  const props: Record<string, unknown> = {};
+  if (input.guestName != null) props['Title'] = { title: [{ text: { content: input.guestName } }] };
+  if (input.status != null) props['Status'] = { select: { name: input.status } };
+  if (input.plusOnes != null) props['Plus-Ones'] = { number: input.plusOnes };
+  if (input.notes !== undefined) {
+    props['Notes'] = { rich_text: input.notes ? [{ text: { content: input.notes } }] : [] };
+  }
+  const updated = await notionRequest('PATCH', `/v1/pages/${input.rsvpId}`, { properties: props });
+  return pageToRsvp(updated);
+}
+
+export interface HostUpdateGuestInput {
+  guestId: string;
+  name?: string;
+  dietaryRestrictions?: DietaryRestriction[];
+  dietaryNotes?: string;
+}
+
+// Host edit of the shared Guest record (name + dietary).
+export async function hostUpdateGuest(input: HostUpdateGuestInput): Promise<Guest> {
+  const props: Record<string, unknown> = {};
+  if (input.name != null) props['Name'] = { title: [{ text: { content: input.name } }] };
+  if (input.dietaryRestrictions !== undefined) {
+    props['Dietary Restrictions'] = { multi_select: input.dietaryRestrictions.map(n => ({ name: n })) };
+  }
+  if (input.dietaryNotes !== undefined) {
+    props['Dietary Notes'] = { rich_text: input.dietaryNotes ? [{ text: { content: input.dietaryNotes } }] : [] };
+  }
+  const updated = await notionRequest('PATCH', `/v1/pages/${input.guestId}`, { properties: props });
+  return pageToGuest(updated);
+}
+
+export async function archiveRsvp(id: string): Promise<void> {
+  await notionRequest('PATCH', `/v1/pages/${id}`, { archived: true });
+}
+
+// Release every potluck item this guest claimed for the event, so removing them
+// frees their dishes back to open instead of stranding a claim by a ghost guest.
+export async function releaseGuestClaims(eventId: string, guestId: string): Promise<number> {
+  const res = await queryDS(DSID.potluck, {
+    filter: {
+      and: [
+        { property: 'Event', relation: { contains: eventId } },
+        { property: 'Claimed By', relation: { contains: guestId } },
+      ],
+    },
+    page_size: 100,
+  });
+  await Promise.all(
+    res.results.map(p =>
+      notionRequest('PATCH', `/v1/pages/${p.id}`, {
+        properties: { 'Claimed By': { relation: [] }, 'Claimed At': { date: null } },
+      })
+    )
+  );
+  return res.results.length;
+}
+
 export async function claimPotluckAtomic(
   itemId: string,
   guestId: string,
@@ -479,6 +600,27 @@ export async function updatePotluckItem(input: UpdatePotluckInput): Promise<Potl
     props['Dietary Tags'] = { multi_select: input.dietaryTags.map(n => ({ name: n })) };
   }
   const updated = await notionRequest('PATCH', `/v1/pages/${input.itemId}`, { properties: props });
+  return pageToPotluck(updated);
+}
+
+export interface SetHostOverrideInput {
+  itemId: string;
+  override: HostOverride | null;   // null clears the override entirely
+  showHostValue: boolean;
+}
+
+// Writes (or clears) the host override JSON and the visibility toggle. The
+// guest's own fields are never touched here.
+export async function setPotluckHostOverride(input: SetHostOverrideInput): Promise<PotluckItem> {
+  const hasOverride = input.override && Object.keys(input.override).length > 0;
+  const json = hasOverride ? JSON.stringify(input.override) : '';
+  const updated = await notionRequest('PATCH', `/v1/pages/${input.itemId}`, {
+    properties: {
+      'Host Override': { rich_text: json ? [{ text: { content: json.slice(0, 2000) } }] : [] },
+      // Visibility can only be on if there's actually something to show.
+      'Show Host Value': { checkbox: hasOverride ? input.showHostValue : false },
+    },
+  });
   return pageToPotluck(updated);
 }
 
@@ -571,26 +713,32 @@ export interface CreateSuggestionRunInput {
   notes?: string;
 }
 
+// Notion caps each rich_text text object at 2000 chars, but allows multiple
+// objects per property. Chunk instead of slicing so logged JSON stays parseable
+// (the Suggestions Log is the eval dataset — truncation corrupts it).
+function jsonRichText(value: unknown) {
+  const s = JSON.stringify(value);
+  const chunks: { text: { content: string } }[] = [];
+  for (let i = 0; i < s.length && chunks.length < 100; i += 2000) {
+    chunks.push({ text: { content: s.slice(i, i + 2000) } });
+  }
+  return { rich_text: chunks };
+}
+
 export async function createSuggestionRun(input: CreateSuggestionRunInput): Promise<SuggestionRun> {
   const props: Record<string, unknown> = {
     'Run Label': { title: [{ text: { content: input.runLabel } }] },
     Event: { relation: [{ id: input.eventId }] },
     'Run At': { date: { start: new Date().toISOString() } },
     Mode: { select: { name: input.mode } },
-    Inputs: { rich_text: [{ text: { content: JSON.stringify(input.inputs).slice(0, 2000) } }] },
-    Suggestions: {
-      rich_text: [{ text: { content: JSON.stringify(input.suggestions).slice(0, 2000) } }],
-    },
+    Inputs: jsonRichText(input.inputs),
+    Suggestions: jsonRichText(input.suggestions),
   };
   if (input.hostAccepted) {
-    props['Host Accepted'] = {
-      rich_text: [{ text: { content: JSON.stringify(input.hostAccepted).slice(0, 2000) } }],
-    };
+    props['Host Accepted'] = jsonRichText(input.hostAccepted);
   }
   if (input.hostRejected) {
-    props['Host Rejected'] = {
-      rich_text: [{ text: { content: JSON.stringify(input.hostRejected).slice(0, 2000) } }],
-    };
+    props['Host Rejected'] = jsonRichText(input.hostRejected);
   }
   if (input.notes) {
     props['Notes'] = { rich_text: [{ text: { content: input.notes } }] };
@@ -600,4 +748,23 @@ export async function createSuggestionRun(input: CreateSuggestionRunInput): Prom
     properties: props,
   });
   return pageToSuggestionRun(created);
+}
+
+// Record the host's review verdict on a suggestion run (Phase 2 accept/reject).
+export async function updateSuggestionRun(
+  id: string,
+  patch: { hostAccepted?: unknown; hostRejected?: unknown; notes?: string }
+): Promise<void> {
+  const props: Record<string, unknown> = {};
+  if (patch.hostAccepted !== undefined) {
+    props['Host Accepted'] = jsonRichText(patch.hostAccepted);
+  }
+  if (patch.hostRejected !== undefined) {
+    props['Host Rejected'] = jsonRichText(patch.hostRejected);
+  }
+  if (patch.notes) {
+    props['Notes'] = { rich_text: [{ text: { content: patch.notes } }] };
+  }
+  if (Object.keys(props).length === 0) return;
+  await notionRequest('PATCH', `/v1/pages/${id}`, { properties: props });
 }

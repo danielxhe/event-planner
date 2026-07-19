@@ -3,7 +3,7 @@
 // with an (effective) target shows coverage dots; one without is a plain
 // claim-a-slot list, which is how non-food categories like "Activities" behave.
 
-import type { CategoryConfig, PotluckItem, Rsvp } from './schema';
+import type { CategoryConfig, PotluckItem, PotluckDietaryTag, Rsvp } from './schema';
 
 // Fallback category set for events that have not saved a config yet.
 // perGuest ratios reproduce the original headcount-scaled targets; Supplies is
@@ -39,6 +39,45 @@ export function effectiveServings(item: PotluckItem): number {
   return DEFAULT_ITEM_SERVINGS;
 }
 
+// Resolved view of an item once the host override + visibility toggle are
+// applied. This is what everyone EXCEPT the claiming guest's own private
+// serving count is built from: grouping, coverage, public name, claimer label.
+// When showHostValue is off (or no override), it's just the guest's input.
+export interface EffectivePotluck {
+  item: string;
+  category: string;
+  serves: number | null;
+  dietaryTags: PotluckDietaryTag[];
+  isClaimed: boolean;              // counts toward coverage / renders as claimed
+  hostClaimerName: string | null; // free-text host claimer when shown, else null
+  usingHostValue: boolean;         // the override is the version being shown
+}
+
+export function effectivePotluck(item: PotluckItem): EffectivePotluck {
+  const o = item.hostOverride;
+  if (item.showHostValue && o) {
+    return {
+      item: o.item ?? item.item,
+      category: o.category ?? item.category,
+      serves: o.serves !== undefined ? o.serves : item.serves,
+      dietaryTags: o.dietaryTags ?? item.dietaryTags,
+      // A host-supplied claimer marks the slot handled even if no guest claimed.
+      isClaimed: o.claimer != null ? true : !!item.claimedByGuestId,
+      hostClaimerName: o.claimer ?? null,
+      usingHostValue: true,
+    };
+  }
+  return {
+    item: item.item,
+    category: item.category,
+    serves: item.serves,
+    dietaryTags: item.dietaryTags,
+    isClaimed: !!item.claimedByGuestId,
+    hostClaimerName: null,
+    usingHostValue: false,
+  };
+}
+
 // Effective target for a category: explicit host target wins; else scale the
 // per-guest ratio to live headcount; else null (plain list, no coverage).
 export function effectiveTarget(c: CategoryConfig, headcount: number | null): number | null {
@@ -56,11 +95,13 @@ export function computeCategoryStats(
 ): CategoryStat[] {
   return categories.map(c => {
     const target = effectiveTarget(c, effectiveHeadcount);
-    // Only count dishes a guest has actually claimed toward coverage — an
-    // unclaimed dish (e.g. host-seeded) is a slot still waiting for someone.
+    // Coverage follows the EFFECTIVE item (host override applied) so the dot
+    // board matches exactly what guests see. Only effectively-claimed dishes
+    // count — an unclaimed slot is still waiting for someone.
     const claimed = items
-      .filter(i => i.category === c.name && i.claimedByGuestId)
-      .reduce((sum, i) => sum + effectiveServings(i), 0);
+      .map(effectivePotluck)
+      .filter(e => e.category === c.name && e.isClaimed)
+      .reduce((sum, e) => sum + (e.serves ?? DEFAULT_ITEM_SERVINGS), 0);
     const claimedRounded = Math.round(claimed);
 
     if (target == null) {

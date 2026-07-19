@@ -8,13 +8,14 @@ import {
   DEFAULT_ITEM_SERVINGS,
   computeCategoryStats,
   sortStatsByNeed,
+  effectivePotluck,
   type CategoryStat,
 } from '@/lib/categories';
 
 interface Props {
   items: PotluckItem[];
   guests: Record<string, string>;
-  event: Pick<Event, 'slug' | 'spreadCategories' | 'isSurprise' | 'hideClaimerNames'>;
+  event: Pick<Event, 'slug' | 'spreadCategories' | 'hideClaimerNames'>;
   effectiveHeadcount: number | null;
 }
 
@@ -26,6 +27,9 @@ export function PotluckList({ items, guests, event, effectiveHeadcount }: Props)
   const [myGuestId, setMyGuestId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  // Items this guest just claimed, rendered as claimed immediately (optimistic)
+  // while the server + refresh catch up. Rolled back on failure.
+  const [optimisticClaims, setOptimisticClaims] = useState<Record<string, number | undefined>>({});
   const [claimServings, setClaimServings] = useState<number>(DEFAULT_ITEM_SERVINGS);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -65,7 +69,7 @@ export function PotluckList({ items, guests, event, effectiveHeadcount }: Props)
     };
   }, []);
 
-  const showNames = !event.isSurprise && !event.hideClaimerNames;
+  const showNames = !event.hideClaimerNames;
   const categoryNames = event.spreadCategories.map(c => c.name);
 
   const stats = useMemo(
@@ -91,22 +95,38 @@ export function PotluckList({ items, guests, event, effectiveHeadcount }: Props)
 
   async function claim(itemId: string, servings?: number) {
     if (!phone) return;
-    setBusyId(itemId);
     setError(null);
+    // Optimistic: the card flips to "You've got this" instantly; rollback below.
+    setOptimisticClaims(prev => ({ ...prev, [itemId]: servings }));
+    setClaimingId(null);
     try {
       const res = await fetch('/api/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itemId, phone, servings }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Claim failed');
-      setClaimingId(null);
+      if (!res.ok) {
+        const data = await res.json();
+        setOptimisticClaims(prev => {
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
+        });
+        if (res.status === 409) {
+          setError('Someone just grabbed that one — the list is refreshed, plenty still needed.');
+          router.refresh();
+          return;
+        }
+        throw new Error(data.error ?? 'Claim failed');
+      }
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Claim failed');
-    } finally {
-      setBusyId(null);
+      setOptimisticClaims(prev => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
+      setError(err instanceof Error ? err.message : 'Claim failed — give it another tap.');
     }
   }
 
@@ -258,7 +278,9 @@ export function PotluckList({ items, guests, event, effectiveHeadcount }: Props)
   }
 
   function itemsFor(catName: string) {
-    return items.filter(i => i.category === catName);
+    // Group by EFFECTIVE category so a host-recategorized item shows where the
+    // host put it, consistent with the coverage dots.
+    return items.filter(i => effectivePotluck(i).category === catName);
   }
 
   if (items.length === 0 && !phone) {
@@ -325,49 +347,55 @@ export function PotluckList({ items, guests, event, effectiveHeadcount }: Props)
                     ) : (
                       <ul className="space-y-2">
                         {cs.map(item => {
-                          const mine = !!myGuestId && item.claimedByGuestId === myGuestId;
+                          // Effective view (host override applied) drives what
+                          // others see: name, tags, claimed status, claimer.
+                          const eff = effectivePotluck(item);
+                          const optimisticMine = item.id in optimisticClaims;
+                          const isClaimed = eff.isClaimed || optimisticMine;
+                          const mine = (!!myGuestId && item.claimedByGuestId === myGuestId) || optimisticMine;
                           const canFullEdit = mine && item.source === 'guest_added';
                           const canEditServings = mine && stat.tracksServings;
                           const isClaiming = claimingId === item.id;
                           const isEditing = editingId === item.id;
-                          // Per-guest serving amounts are host-only; a guest only
-                          // sees their own number, never another guest's.
-                          const servingText = item.claimedByGuestId
-                            ? mine && item.serves != null
-                              ? `you're bringing ${item.serves} servings`
-                              : null
-                            : stat.tracksServings && item.hostEstimate != null
+                          // Personal serving count is the claiming guest's own
+                          // truth (raw), never the host's override. Others only
+                          // ever see the host estimate on an unclaimed slot.
+                          const myServes = optimisticMine ? optimisticClaims[item.id] : item.serves;
+                          const servingText = mine && myServes != null
+                            ? `you're bringing ${myServes} servings`
+                            : !isClaimed && stat.tracksServings && item.hostEstimate != null
                             ? `host estimate ~${item.hostEstimate}`
                             : null;
-                          const meta = [servingText, item.dietaryTags.join(', ') || null]
+                          const meta = [servingText, eff.dietaryTags.join(', ') || null]
                             .filter(Boolean)
                             .join(' · ');
-                          const claimerLabel = item.claimedByGuestId
+                          const claimerLabel = isClaimed
                             ? mine
                               ? 'You'
                               : showNames
-                              ? guests[item.claimedByGuestId] ?? 'Claimed'
+                              ? eff.hostClaimerName ??
+                                (item.claimedByGuestId ? guests[item.claimedByGuestId] ?? 'Claimed' : 'Claimed')
                               : 'Claimed'
                             : null;
                           return (
                             <li
                               key={item.id}
-                              className={`rounded-md border p-3 ${
-                                item.claimedByGuestId
+                              className={`rounded-md border p-3 transition-colors ${
+                                isClaimed
                                   ? 'border-emerald-500/30 bg-emerald-500/5'
                                   : 'border-slate-700 bg-slate-900'
                               }`}
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="font-medium truncate">{item.item}</div>
+                                  <div className="font-medium truncate">{eff.item}</div>
                                   {meta && <div className="text-xs text-slate-400 mt-0.5">{meta}</div>}
                                   {claimerLabel && (
                                     <div className="mt-1 text-xs text-emerald-300">✅ {claimerLabel}</div>
                                   )}
                                 </div>
                                 <div className="flex-shrink-0 flex items-center gap-2">
-                                  {!item.claimedByGuestId && phone && !isClaiming && (
+                                  {!isClaimed && phone && !isClaiming && (
                                     <button
                                       onClick={() => startClaim(item.id, stat.tracksServings, item.hostEstimate)}
                                       disabled={busyId === item.id}

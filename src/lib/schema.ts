@@ -81,6 +81,18 @@ export interface Rsvp {
   source: RsvpSource;
 }
 
+// A host's per-item override of the guest's input. Stored as a JSON blob in the
+// "Host Override" rich_text. Any field left undefined falls back to the guest's
+// value when resolving the effective item. `claimer` is free text (the host can
+// name someone who isn't a registered guest).
+export interface HostOverride {
+  item?: string;
+  category?: string;
+  claimer?: string;
+  serves?: number | null;
+  dietaryTags?: PotluckDietaryTag[];
+}
+
 export interface PotluckItem {
   id: string;
   item: string;
@@ -93,6 +105,11 @@ export interface PotluckItem {
   claimedAt: string | null;
   source: PotluckSource;
   notes: string;
+  // Host override + visibility toggle. The guest's own input above is never
+  // mutated; the override is a parallel layer. When showHostValue is true and an
+  // override exists, guests see the override instead of the guest input.
+  hostOverride: HostOverride | null;
+  showHostValue: boolean;
 }
 
 export interface SuggestionRun {

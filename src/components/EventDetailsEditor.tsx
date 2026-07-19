@@ -178,7 +178,7 @@ export function EventDetailsEditor({ slug, hostSecret, event }: Props) {
         </label>
         {f.isSurprise && (
           <p className="text-[11px] text-pink-300 pl-6">
-            Surprise hides the guest list and names everywhere. Never share this event in a group thread.
+            Shows guests a &ldquo;keep it a secret&rdquo; reminder on the invite. Guests still see each other; use &ldquo;Hide claimer names&rdquo; for that.
           </p>
         )}
       </div>

@@ -53,7 +53,7 @@ export function ReminderPanel({ recipients, isSurprise, defaultMessage, title, e
       <p className="text-xs text-slate-400 mb-3">
         {yesCount} Yes · {maybeCount} Maybe. Tap &ldquo;Text&rdquo; on each row to message individually
         {isSurprise && (
-          <> — group send would <span className="text-pink-300">reveal the guest list</span>.</>
+          <> — a group thread could <span className="text-pink-300">tip off the guest of honor</span>.</>
         )}
         {!isSurprise && <>.</>}
       </p>

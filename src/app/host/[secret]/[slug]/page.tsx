@@ -3,7 +3,8 @@ import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent, listGuestsByIds 
 import { hostSecretValid } from '@/lib/auth';
 import { SmartPotluckPanel } from '@/components/SmartPotluckPanel';
 import { HostItemAdder } from '@/components/HostItemAdder';
-import { PotluckDeleteButton } from '@/components/PotluckDeleteButton';
+import { HostSpreadItem } from '@/components/HostSpreadItem';
+import { HostRosterRow } from '@/components/HostRosterRow';
 import { ReminderPanel, type Recipient } from '@/components/ReminderPanel';
 import { CategoryEditor } from '@/components/CategoryEditor';
 import { EventDetailsEditor } from '@/components/EventDetailsEditor';
@@ -334,50 +335,21 @@ export default async function HostPage({ params }: PageProps) {
                   <div key={cat}>
                     <h3 className="text-xs uppercase tracking-wide text-slate-400 mb-1">{cat}</h3>
                     <ul className="space-y-1">
-                      {items.map(item => (
-                        <li
-                          key={item.id}
-                          className={`flex items-center justify-between rounded px-3 py-2 text-sm ${
-                            item.claimedByGuestId
-                              ? 'bg-emerald-500/5 border-l-2 border-emerald-500/50'
-                              : 'bg-slate-800/50 border-l-2 border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="truncate">{item.item}</span>
-                            {item.source === 'ai_suggested' && (
-                              <span className="text-[10px] rounded bg-purple-500/20 text-purple-300 px-1.5 py-0.5">AI</span>
-                            )}
-                            {item.dietaryTags.map(t => (
-                              <span key={t} className="text-[10px] rounded bg-slate-700 text-slate-300 px-1.5 py-0.5">{t}</span>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                            {(item.hostEstimate != null || item.serves != null) && (
-                              <span className="text-[10px] text-slate-500 whitespace-nowrap">
-                                {[
-                                  item.hostEstimate != null ? `est ${item.hostEstimate}` : null,
-                                  item.serves != null ? `bringing ${item.serves}` : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
-                              </span>
-                            )}
-                            <span className="text-xs text-slate-400">
-                              {item.claimedByGuestId
-                                ? guestNames[item.claimedByGuestId] ?? 'Claimed'
-                                : '🟡 open'}
-                            </span>
-                            <PotluckDeleteButton
-                              slug={event.slug}
-                              hostSecret={event.hostSecret}
-                              itemId={item.id}
-                              itemLabel={item.item}
-                              isClaimed={!!item.claimedByGuestId}
-                            />
-                          </div>
-                        </li>
-                      ))}
+                      {items.map(item => {
+                        const guestClaimerName = item.claimedByGuestId
+                          ? guestNames[item.claimedByGuestId] ?? null
+                          : null;
+                        return (
+                          <HostSpreadItem
+                            key={item.id}
+                            slug={event.slug}
+                            hostSecret={event.hostSecret}
+                            item={item}
+                            guestClaimerName={guestClaimerName}
+                            categories={configuredNames}
+                          />
+                        );
+                      })}
                     </ul>
                   </div>
                 );
@@ -413,42 +385,28 @@ export default async function HostPage({ params }: PageProps) {
                   <th className="text-left py-2 px-2">+1</th>
                   <th className="text-left py-2 px-2">Dietary</th>
                   <th className="text-left py-2 px-2">Notes</th>
+                  <th className="text-right py-2 px-2">Edit</th>
                 </tr>
               </thead>
               <tbody>
                 {rsvps.map(r => {
                   const g = guestById.get(r.guestId);
-                  const tags = g?.dietaryRestrictions ?? [];
                   return (
-                  <tr key={r.id} className="border-b border-slate-800/60">
-                    <td className="py-2 px-2 font-medium">{r.title}</td>
-                    <td className="py-2 px-2">
-                      <span
-                        className={`rounded px-2 py-0.5 text-xs ${
-                          r.status === 'Yes' ? 'bg-emerald-500/20 text-emerald-300'
-                            : r.status === 'Maybe' ? 'bg-amber-500/20 text-amber-300'
-                            : r.status === 'No' ? 'bg-rose-500/20 text-rose-300'
-                            : 'bg-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="py-2 px-2 text-slate-300">{r.plusOnes}</td>
-                    <td className="py-2 px-2 text-slate-300">
-                      {tags.length > 0 || g?.dietaryNotes ? (
-                        <div className="flex flex-wrap gap-1 items-center">
-                          {tags.map(t => (
-                            <span key={t} className="text-[10px] rounded bg-amber-500/15 text-amber-200 px-1.5 py-0.5">{t}</span>
-                          ))}
-                          {g?.dietaryNotes && <span className="text-[10px] text-slate-400">{g.dietaryNotes}</span>}
-                        </div>
-                      ) : (
-                        <span className="text-slate-600">—</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-2 text-slate-400 truncate max-w-xs">{r.notes}</td>
-                  </tr>
+                    <HostRosterRow
+                      key={r.id}
+                      slug={event.slug}
+                      hostSecret={event.hostSecret}
+                      rsvp={{
+                        id: r.id,
+                        guestId: r.guestId,
+                        title: r.title,
+                        status: r.status,
+                        plusOnes: r.plusOnes,
+                        notes: r.notes,
+                      }}
+                      dietaryRestrictions={g?.dietaryRestrictions ?? []}
+                      dietaryNotes={g?.dietaryNotes ?? ''}
+                    />
                   );
                 })}
               </tbody>

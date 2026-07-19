@@ -3,6 +3,7 @@ import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent } from '@/lib/not
 import { formatPhoneForDisplay } from '@/lib/phone';
 import { estimatedHeadcountFromRsvps } from '@/lib/categories';
 import { RsvpForm } from '@/components/RsvpForm';
+import { RsvpJumpBar } from '@/components/RsvpJumpBar';
 import { PotluckList } from '@/components/PotluckList';
 
 interface PageProps {
@@ -53,7 +54,7 @@ export default async function EventPage({ params }: PageProps) {
         <div className="mx-auto max-w-xl space-y-3">
           {event.isSurprise && (
             <div className="rounded-lg border border-pink-500/40 bg-pink-500/10 px-4 py-3 text-sm">
-              🤫 <span className="font-semibold">Surprise event.</span> Do not share this link or post about it anywhere.
+              🤫 <span className="font-semibold">It&apos;s a surprise!</span> Please keep it a secret — don&apos;t post about it or share this link where the guest of honor might see it.
             </div>
           )}
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{event.name}</h1>
@@ -93,8 +94,26 @@ export default async function EventPage({ params }: PageProps) {
       {/* RSVP */}
       <section className="px-6 py-8">
         <div className="mx-auto max-w-xl">
-          <h2 className="mb-4 text-lg font-semibold">Are you coming?</h2>
-          <RsvpForm slug={event.slug} plusOnesMax={event.plusOnesMax ?? 2} targetHeadcount={event.targetHeadcount} />
+          <h2 className="mb-1 text-lg font-semibold">Are you coming?</h2>
+          {confirmedRsvps.length > 0 && (
+            <p className="mb-4 text-sm text-slate-400">
+              Join {confirmedRsvps.slice(0, 2).map(r => r.title.split(' ')[0]).join(', ')}
+              {confirmedRsvps.length > 2 && ` + ${confirmedRsvps.length - 2} others`} — they&apos;re in.
+            </p>
+          )}
+          {confirmedRsvps.length === 0 && <div className="mb-4" />}
+          <RsvpForm
+            slug={event.slug}
+            plusOnesMax={event.plusOnesMax ?? 2}
+            targetHeadcount={event.targetHeadcount}
+            event={{
+              name: event.name,
+              date: event.date,
+              venueName: event.venueName,
+              venueAddress: event.venueAddress,
+              description: event.description,
+            }}
+          />
         </div>
       </section>
 
@@ -111,8 +130,8 @@ export default async function EventPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Guest list — hidden if surprise */}
-      {!event.isSurprise && confirmedRsvps.length > 0 && (
+      {/* Guest list — always shown; surprise only affects the secret reminder. */}
+      {confirmedRsvps.length > 0 && (
         <section className="px-6 py-8">
           <div className="mx-auto max-w-xl">
             <h2 className="mb-4 text-lg font-semibold">
@@ -130,8 +149,10 @@ export default async function EventPage({ params }: PageProps) {
       )}
 
       <footer className="px-6 py-12 text-center text-xs text-slate-500">
-        Made with Event Planner V2
+        Made with Spread
       </footer>
+
+      <RsvpJumpBar />
     </main>
   );
 }
