@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { findEventBySlug, upsertGuestByPhone, upsertRsvp } from '@/lib/notion';
+import { findEventBySlug, releaseGuestClaims, upsertGuestByPhone, upsertRsvp } from '@/lib/notion';
 import { normalizePhone } from '@/lib/phone';
 import type { DietaryRestriction } from '@/lib/schema';
 
@@ -65,11 +65,20 @@ export async function POST(req: Request) {
     source: 'form',
   });
 
+  // A "No" frees the guest's dish claims — otherwise the host's coverage view
+  // keeps counting dishes nobody is bringing (phantom claims). The released
+  // names go back to the guest so the UI can say what was freed.
+  let releasedItems: string[] = [];
+  if (body.status === 'No') {
+    releasedItems = (await releaseGuestClaims(event.id, guest.id)).itemNames;
+  }
+
   return NextResponse.json({
     ok: true,
     guestId: guest.id,
     rsvpId: rsvp.id,
     phone,
+    releasedItems,
     saved: {
       name: guest.name,
       status: rsvp.status,

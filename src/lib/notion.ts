@@ -527,7 +527,10 @@ export async function archiveRsvp(id: string): Promise<void> {
 
 // Release every potluck item this guest claimed for the event, so removing them
 // frees their dishes back to open instead of stranding a claim by a ghost guest.
-export async function releaseGuestClaims(eventId: string, guestId: string): Promise<number> {
+export async function releaseGuestClaims(
+  eventId: string,
+  guestId: string,
+): Promise<{ count: number; itemNames: string[] }> {
   const res = await queryDS(DSID.potluck, {
     filter: {
       and: [
@@ -544,7 +547,10 @@ export async function releaseGuestClaims(eventId: string, guestId: string): Prom
       })
     )
   );
-  return res.results.length;
+  return {
+    count: res.results.length,
+    itemNames: res.results.map(p => getTitle(p, 'Item')).filter(Boolean),
+  };
 }
 
 export async function claimPotluckAtomic(

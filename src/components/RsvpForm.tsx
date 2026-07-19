@@ -64,6 +64,7 @@ export function RsvpForm({ slug, plusOnesMax = 2, targetHeadcount, event }: Prop
   const [notes, setNotes] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
   const [detailsSaved, setDetailsSaved] = useState(false);
+  const [releasedItems, setReleasedItems] = useState<string[]>([]);
 
   const applySaved = useCallback((s: SavedRsvp) => {
     setSaved(s);
@@ -127,6 +128,7 @@ export function RsvpForm({ slug, plusOnesMax = 2, targetHeadcount, event }: Prop
       new CustomEvent('ep:identity', { detail: { phone: savedPhone, guestId: data.guestId } })
     );
     if (data.saved) applySaved(data.saved as SavedRsvp);
+    setReleasedItems(Array.isArray(data.releasedItems) ? data.releasedItems : []);
     router.refresh();
   }
 
@@ -216,6 +218,13 @@ export function RsvpForm({ slug, plusOnesMax = 2, targetHeadcount, event }: Prop
             : "You said you can't make it"}
           {saved.dietaryRestrictions.length > 0 && ` · ${saved.dietaryRestrictions.join(', ')}`}
         </p>
+        {!going && releasedItems.length > 0 && (
+          <p className="mt-2 text-sm text-emerald-100/80">
+            No worries — we freed up{' '}
+            <span className="font-medium">{releasedItems.join(', ')}</span> so someone else can
+            bring {releasedItems.length === 1 ? 'it' : 'them'}.
+          </p>
+        )}
 
         {going && (
           <div className="mt-3 flex flex-wrap gap-2">

@@ -37,5 +37,5 @@ export async function POST(req: Request) {
   const released = await releaseGuestClaims(event.id, body.guestId);
   await archiveRsvp(rsvp.id);
 
-  return NextResponse.json({ ok: true, releasedClaims: released });
+  return NextResponse.json({ ok: true, releasedClaims: released.count });
 }
