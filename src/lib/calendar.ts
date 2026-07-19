@@ -5,6 +5,12 @@ import type { Event } from './schema';
 
 const DEFAULT_DURATION_MS = 3 * 60 * 60 * 1000;
 
+// Notion date-only values ("2026-06-06") parse as UTC midnight and shift a
+// day when formatted in a western timezone — anchor them at local noon.
+export function safeEventDate(raw: string): Date {
+  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw);
+}
+
 function toUtcStamp(d: Date): string {
   return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }

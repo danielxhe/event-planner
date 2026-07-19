@@ -1,7 +1,10 @@
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent } from '@/lib/notion';
 import { formatPhoneForDisplay } from '@/lib/phone';
 import { estimatedHeadcountFromRsvps } from '@/lib/categories';
+import { safeEventDate } from '@/lib/calendar';
 import { RsvpForm } from '@/components/RsvpForm';
 import { RsvpJumpBar } from '@/components/RsvpJumpBar';
 import { PotluckList } from '@/components/PotluckList';
@@ -10,9 +13,52 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Dedupe the Notion read between generateMetadata and the page render.
+const getEvent = cache(findEventBySlug);
+
+// The invite link IS the first impression — without metadata it lands in a
+// group chat as a bare URL. Title/description/OG image make it unfurl.
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const event = await getEvent(slug);
+  if (!event || !event.isPublished || event.cancelled) {
+    return { title: 'Spread', description: 'Potluck planning that actually works.' };
+  }
+  const dateStr = event.date
+    ? safeEventDate(event.date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null;
+  const description = [
+    "You're invited!",
+    dateStr,
+    event.venueName || null,
+    'RSVP in 5 seconds — no account needed.',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return {
+    title: event.name,
+    description,
+    openGraph: {
+      title: event.name,
+      description,
+      type: 'website',
+      siteName: 'Spread',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: event.name,
+      description,
+    },
+  };
+}
+
 export default async function EventPage({ params }: PageProps) {
   const { slug } = await params;
-  const event = await findEventBySlug(slug);
+  const event = await getEvent(slug);
   if (!event || !event.isPublished || event.cancelled) notFound();
 
   const [rsvps, potluck] = await Promise.all([
