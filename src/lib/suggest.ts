@@ -159,14 +159,23 @@ export interface GenerationResult {
   model: string;
 }
 
+// Keys arrive via dashboards, pipes, and copy-paste — strip BOM and stray
+// whitespace or the HTTP header rejects them (seen live: piping a key into
+// `vercel env add` on Windows prepended U+FEFF and every call 502'd).
+function cleanKey(raw: string | undefined): string {
+  return (raw ?? '').replace(/^\uFEFF/, '').trim();
+}
+
 export async function generateSuggestions(
   context: SuggestionContext,
 ): Promise<GenerationResult> {
   const categoryNames = context.categories.map(c => c.name);
   const userMessage = `Current party state:\n${JSON.stringify(context, null, 2)}`;
 
-  if (process.env.GEMINI_API_KEY) return generateWithGemini(userMessage, categoryNames);
-  if (process.env.ANTHROPIC_API_KEY) return generateWithClaude(userMessage, categoryNames);
+  const geminiKey = cleanKey(process.env.GEMINI_API_KEY);
+  const anthropicKey = cleanKey(process.env.ANTHROPIC_API_KEY);
+  if (geminiKey) return generateWithGemini(userMessage, categoryNames, geminiKey);
+  if (anthropicKey) return generateWithClaude(userMessage, categoryNames, anthropicKey);
   throw new Error(
     'No AI provider configured: set GEMINI_API_KEY (free at aistudio.google.com) or ANTHROPIC_API_KEY in .env.local',
   );
@@ -218,6 +227,7 @@ function geminiSuggestionSchema(categoryNames: string[]) {
 async function generateWithGemini(
   userMessage: string,
   categoryNames: string[],
+  apiKey: string,
 ): Promise<GenerationResult> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
@@ -225,7 +235,7 @@ async function generateWithGemini(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY as string,
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
@@ -266,8 +276,9 @@ async function generateWithGemini(
 async function generateWithClaude(
   userMessage: string,
   categoryNames: string[],
+  apiKey: string,
 ): Promise<GenerationResult> {
-  const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+  const client = new Anthropic({ apiKey });
 
   const response = await client.messages.create({
     model: 'claude-opus-4-8',

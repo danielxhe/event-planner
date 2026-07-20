@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { findEventBySlug, listRsvpsByEvent, listPotluckByEvent } from '@/lib/notion';
 import { formatPhoneForDisplay } from '@/lib/phone';
 import { estimatedHeadcountFromRsvps } from '@/lib/categories';
-import { safeEventDate } from '@/lib/calendar';
+import { formatEventDate, safeEventDate } from '@/lib/calendar';
 import { RsvpForm } from '@/components/RsvpForm';
 import { RsvpJumpBar } from '@/components/RsvpJumpBar';
 import { PotluckList } from '@/components/PotluckList';
@@ -72,15 +72,7 @@ export default async function EventPage({ params }: PageProps) {
   const guestNames: Record<string, string> = {};
   for (const r of rsvps) guestNames[r.guestId] = r.title;
 
-  const dateStr = event.date
-    ? new Date(event.date).toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : 'Date TBD';
+  const dateStr = event.date ? formatEventDate(event.date) : 'Date TBD';
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -115,7 +107,21 @@ export default async function EventPage({ params }: PageProps) {
                 <>📍 {event.venueName}</>
               )}
               {event.venueAddress && (
-                <div className="text-sm text-slate-500 pl-6">{event.venueAddress}</div>
+                <div className="text-sm text-slate-500 pl-6">
+                  <a
+                    href={
+                      event.venueMapUrl ??
+                      `https://maps.google.com/?q=${encodeURIComponent(
+                        [event.venueName, event.venueAddress].filter(Boolean).join(', ')
+                      )}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-slate-300 underline-offset-4 hover:underline"
+                  >
+                    {event.venueAddress} ↗
+                  </a>
+                </div>
               )}
             </div>
           )}
@@ -144,7 +150,8 @@ export default async function EventPage({ params }: PageProps) {
           {confirmedRsvps.length > 0 && (
             <p className="mb-4 text-sm text-slate-400">
               Join {confirmedRsvps.slice(0, 2).map(r => r.title.split(' ')[0]).join(', ')}
-              {confirmedRsvps.length > 2 && ` + ${confirmedRsvps.length - 2} others`} — they&apos;re in.
+              {confirmedRsvps.length > 2 && ` + ${confirmedRsvps.length - 2} others`}
+              {' — they’re in.'}
             </p>
           )}
           {confirmedRsvps.length === 0 && <div className="mb-4" />}

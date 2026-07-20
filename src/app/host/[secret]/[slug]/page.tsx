@@ -18,6 +18,7 @@ import { CategoryEditor } from '@/components/CategoryEditor';
 import { EventDetailsEditor } from '@/components/EventDetailsEditor';
 import { GuestLinkBar } from '@/components/GuestLinkBar';
 import { computeCategoryStats, effectivePotluck } from '@/lib/categories';
+import { formatEventDate } from '@/lib/calendar';
 
 interface PageProps {
   params: Promise<{ secret: string; slug: string }>;
@@ -119,15 +120,7 @@ export default async function HostPage({ params }: PageProps) {
   const dietaryGaps = dietaryFlags.filter(f => f.status === 'gap');
   const dietaryManual = dietaryFlags.filter(f => f.status === 'manual');
 
-  const eventDateStr = event.date
-    ? new Date(event.date).toLocaleString('en-US', {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : 'soon';
+  const eventDateStr = event.date ? formatEventDate(event.date, 'short') : 'soon';
   const defaultReminderMessage =
     `Hey! Just a reminder about ${event.name} — ${eventDateStr}` +
     (event.venueName ? ` at ${event.venueName}` : '') +

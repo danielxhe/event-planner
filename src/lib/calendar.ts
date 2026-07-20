@@ -5,14 +5,42 @@ import type { Event } from './schema';
 
 const DEFAULT_DURATION_MS = 3 * 60 * 60 * 1000;
 
-// Notion date-only values ("2026-06-06") parse as UTC midnight and shift a
-// day when formatted in a western timezone — anchor them at local noon.
+// Notion dates come in two shapes: date-only ("2026-06-06", time unknown) and
+// full datetimes. Treating date-only as UTC midnight puts the party on the
+// wrong DAY for anyone west of Greenwich (verified live: DTSTART:20260606T000000Z
+// renders as June 5, 8 PM in New York). Date-only events must become all-day
+// calendar entries, never timed ones.
+export function isDateOnly(raw: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw);
+}
+
+// Anchor date-only values at local noon so formatting never shifts the day.
 export function safeEventDate(raw: string): Date {
-  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw);
+  return new Date(isDateOnly(raw) ? `${raw}T12:00:00` : raw);
+}
+
+// Shared display formatter: show a time only when the event actually has one
+// (date-only events were rendering as "at 12:00 AM" to every guest).
+export function formatEventDate(raw: string, month: 'long' | 'short' = 'long'): string {
+  const opts: Intl.DateTimeFormatOptions = { weekday: 'long', month, day: 'numeric' };
+  if (!isDateOnly(raw)) {
+    opts.hour = 'numeric';
+    opts.minute = '2-digit';
+  }
+  return safeEventDate(raw).toLocaleString('en-US', opts);
 }
 
 function toUtcStamp(d: Date): string {
   return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+// All-day format: compact date plus the exclusive next day.
+function allDayRange(raw: string): { start: string; end: string } {
+  const start = raw.replaceAll('-', '');
+  const next = new Date(`${raw}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  const end = next.toISOString().slice(0, 10).replaceAll('-', '');
+  return { start, end };
 }
 
 function eventWindow(event: Pick<Event, 'date'>): { start: Date; end: Date } | null {
@@ -26,12 +54,20 @@ export function googleCalendarUrl(
   event: Pick<Event, 'name' | 'date' | 'venueName' | 'venueAddress' | 'description'>,
   eventUrl: string,
 ): string | null {
-  const window = eventWindow(event);
-  if (!window) return null;
+  if (!event.date) return null;
+  let dates: string;
+  if (isDateOnly(event.date)) {
+    const r = allDayRange(event.date);
+    dates = `${r.start}/${r.end}`;
+  } else {
+    const window = eventWindow(event);
+    if (!window) return null;
+    dates = `${toUtcStamp(window.start)}/${toUtcStamp(window.end)}`;
+  }
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: event.name,
-    dates: `${toUtcStamp(window.start)}/${toUtcStamp(window.end)}`,
+    dates,
     details: [event.description, eventUrl].filter(Boolean).join('\n\n'),
     location: [event.venueName, event.venueAddress].filter(Boolean).join(', '),
   });
@@ -46,8 +82,16 @@ export function buildIcs(
   event: Pick<Event, 'id' | 'name' | 'date' | 'venueName' | 'venueAddress' | 'description'>,
   eventUrl: string,
 ): string | null {
-  const window = eventWindow(event);
-  if (!window) return null;
+  if (!event.date) return null;
+  let dtLines: string[];
+  if (isDateOnly(event.date)) {
+    const r = allDayRange(event.date);
+    dtLines = [`DTSTART;VALUE=DATE:${r.start}`, `DTEND;VALUE=DATE:${r.end}`];
+  } else {
+    const window = eventWindow(event);
+    if (!window) return null;
+    dtLines = [`DTSTART:${toUtcStamp(window.start)}`, `DTEND:${toUtcStamp(window.end)}`];
+  }
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -55,8 +99,7 @@ export function buildIcs(
     'BEGIN:VEVENT',
     `UID:${event.id}@spread`,
     `DTSTAMP:${toUtcStamp(new Date())}`,
-    `DTSTART:${toUtcStamp(window.start)}`,
-    `DTEND:${toUtcStamp(window.end)}`,
+    ...dtLines,
     `SUMMARY:${icsEscape(event.name)}`,
     ...(event.venueName || event.venueAddress
       ? [`LOCATION:${icsEscape([event.venueName, event.venueAddress].filter(Boolean).join(', '))}`]
